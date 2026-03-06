@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="package" version="5.0" method="upgrade">
+  <name>SuperSoftJx SmartLink Package</name>
+  <packagename>smartlink</packagename>
+  <creationDate>2026-02-28</creationDate>
+  <author>SuperSoft</author>
+  <authorEmail>an_kont@yahoo.gr</authorEmail>
+  <authorUrl>https://superor.wordpress.com</authorUrl>
+  <copyright>(C) SuperSoft</copyright>
+  <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+  <version>1.2.0</version>
+  <description>SmartLink package installer for Joomla 5.4+ and Joomla 6.x.</description>
+  <languages folder="language">
+    <language tag="en-GB" client="administrator">en-GB/pkg_smartlink.ini</language>
+    <language tag="en-GB" client="administrator">en-GB/pkg_smartlink.sys.ini</language>
+    <language tag="el-GR" client="administrator">el-GR/pkg_smartlink.ini</language>
+    <language tag="el-GR" client="administrator">el-GR/pkg_smartlink.sys.ini</language>
+  </languages>
+  <files folder="packages">
+    <file type="plugin" id="smartlink" group="fields">plg_fields_smartlink.zip</file>
+    <file type="plugin" id="smartlink" group="editors-xtd">plg_editors_xtd_smartlink.zip</file>
+  </files>
+</extension>

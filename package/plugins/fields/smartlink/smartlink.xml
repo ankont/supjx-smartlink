@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="fields" method="upgrade">
+  <name>PLG_FIELDS_SMARTLINK</name>
+  <author>SuperSoft</author>
+  <creationDate>2026-02-28</creationDate>
+  <copyright>(C) SuperSoft</copyright>
+  <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+  <authorEmail>an_kont@yahoo.gr</authorEmail>
+  <authorUrl>https://superor.wordpress.com</authorUrl>
+  <element>smartlink</element>
+  <version>1.2.0</version>
+  <description>PLG_FIELDS_SMARTLINK_XML_DESCRIPTION</description>
+  <namespace path="src">SuperSoft\Plugin\Fields\Smartlink</namespace>
+  <files>
+    <folder plugin="smartlink">services</folder>
+    <folder>fields</folder>
+    <folder>params</folder>
+    <filename>smartlink.php</filename>
+    <folder>src</folder>
+    <folder>tmpl</folder>
+  </files>
+  <languages folder="language">
+    <language tag="en-GB" client="administrator">en-GB/plg_fields_smartlink.ini</language>
+    <language tag="en-GB" client="administrator">en-GB/plg_fields_smartlink.sys.ini</language>
+    <language tag="el-GR" client="administrator">el-GR/plg_fields_smartlink.ini</language>
+    <language tag="el-GR" client="administrator">el-GR/plg_fields_smartlink.sys.ini</language>
+  </languages>
+  <media destination="plg_fields_smartlink" folder="media">
+    <filename>smartlink-builder.css</filename>
+    <filename>smartlink-builder.js</filename>
+    <filename>pickers.js</filename>
+  </media>
+  <config>
+    <fields name="params">
+      <fieldset name="basic" label="PLG_FIELDS_SMARTLINK_FIELDSET_BASIC">
+        <field
+          name="allowed_kinds"
+          type="list"
+          label="PLG_FIELDS_SMARTLINK_ALLOWED_KINDS_LABEL"
+          description="PLG_FIELDS_SMARTLINK_ALLOWED_KINDS_DESC"
+          multiple="true"
+          filter="raw"
+          default="external_url,anchor,email,phone,com_content_article,com_content_category,menu_item,com_tags_tag"
+        >
+          <option value="external_url">PLG_FIELDS_SMARTLINK_OPTION_KIND_EXTERNAL_URL</option>
+          <option value="anchor">PLG_FIELDS_SMARTLINK_OPTION_KIND_ANCHOR</option>
+          <option value="email">PLG_FIELDS_SMARTLINK_OPTION_KIND_EMAIL</option>
+          <option value="phone">PLG_FIELDS_SMARTLINK_OPTION_KIND_PHONE</option>
+          <option value="com_content_article">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_CONTENT_ARTICLE</option>
+          <option value="com_content_category">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_CONTENT_CATEGORY</option>
+          <option value="menu_item">PLG_FIELDS_SMARTLINK_OPTION_KIND_MENU_ITEM</option>
+          <option value="com_tags_tag">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_TAGS_TAG</option>
+          <option value="relative_url">PLG_FIELDS_SMARTLINK_OPTION_KIND_RELATIVE_URL</option>
+          <option value="com_contact_contact">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_CONTACT_CONTACT</option>
+          <option value="user_profile">PLG_FIELDS_SMARTLINK_OPTION_KIND_USER_PROFILE</option>
+          <option value="advanced_route">PLG_FIELDS_SMARTLINK_OPTION_KIND_ADVANCED_ROUTE</option>
+          <option value="media_file">PLG_FIELDS_SMARTLINK_OPTION_KIND_MEDIA_FILE</option>
+          <option value="image">PLG_FIELDS_SMARTLINK_OPTION_KIND_IMAGE</option>
+          <option value="video">PLG_FIELDS_SMARTLINK_OPTION_KIND_VIDEO</option>
+          <option value="gallery">PLG_FIELDS_SMARTLINK_OPTION_KIND_GALLERY</option>
+        </field>
+        <field
+          name="allowed_actions"
+          type="list"
+          label="PLG_FIELDS_SMARTLINK_ALLOWED_ACTIONS_LABEL"
+          description="PLG_FIELDS_SMARTLINK_ALLOWED_ACTIONS_DESC"
+          multiple="true"
+          filter="raw"
+          default="link_open,link_download,preview_modal,embed"
+        >
+          <option value="link_open">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_OPEN</option>
+          <option value="link_download">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_DOWNLOAD</option>
+          <option value="preview_modal">PLG_FIELDS_SMARTLINK_OPTION_ACTION_PREVIEW_MODAL</option>
+          <option value="embed">PLG_FIELDS_SMARTLINK_OPTION_ACTION_EMBED</option>
+        </field>
+        <field
+          name="default_kind"
+          type="list"
+          label="PLG_FIELDS_SMARTLINK_DEFAULT_KIND_LABEL"
+          default="external_url"
+        >
+          <option value="external_url">PLG_FIELDS_SMARTLINK_OPTION_KIND_EXTERNAL_URL</option>
+          <option value="anchor">PLG_FIELDS_SMARTLINK_OPTION_KIND_ANCHOR</option>
+          <option value="email">PLG_FIELDS_SMARTLINK_OPTION_KIND_EMAIL</option>
+          <option value="phone">PLG_FIELDS_SMARTLINK_OPTION_KIND_PHONE</option>
+          <option value="com_content_article">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_CONTENT_ARTICLE</option>
+          <option value="com_content_category">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_CONTENT_CATEGORY</option>
+          <option value="menu_item">PLG_FIELDS_SMARTLINK_OPTION_KIND_MENU_ITEM</option>
+          <option value="com_tags_tag">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_TAGS_TAG</option>
+          <option value="relative_url">PLG_FIELDS_SMARTLINK_OPTION_KIND_RELATIVE_URL</option>
+          <option value="com_contact_contact">PLG_FIELDS_SMARTLINK_OPTION_KIND_COM_CONTACT_CONTACT</option>
+          <option value="user_profile">PLG_FIELDS_SMARTLINK_OPTION_KIND_USER_PROFILE</option>
+          <option value="advanced_route">PLG_FIELDS_SMARTLINK_OPTION_KIND_ADVANCED_ROUTE</option>
+          <option value="media_file">PLG_FIELDS_SMARTLINK_OPTION_KIND_MEDIA_FILE</option>
+          <option value="image">PLG_FIELDS_SMARTLINK_OPTION_KIND_IMAGE</option>
+          <option value="video">PLG_FIELDS_SMARTLINK_OPTION_KIND_VIDEO</option>
+          <option value="gallery">PLG_FIELDS_SMARTLINK_OPTION_KIND_GALLERY</option>
+        </field>
+        <field
+          name="default_action"
+          type="list"
+          label="PLG_FIELDS_SMARTLINK_DEFAULT_ACTION_LABEL"
+          default="link_open"
+        >
+          <option value="link_open">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_OPEN</option>
+          <option value="link_download">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_DOWNLOAD</option>
+          <option value="preview_modal">PLG_FIELDS_SMARTLINK_OPTION_ACTION_PREVIEW_MODAL</option>
+          <option value="embed">PLG_FIELDS_SMARTLINK_OPTION_ACTION_EMBED</option>
+        </field>
+        <field
+          name="validation_profile"
+          type="list"
+          label="PLG_FIELDS_SMARTLINK_VALIDATION_PROFILE_LABEL"
+          default="any"
+        >
+          <option value="any">PLG_FIELDS_SMARTLINK_OPTION_VALIDATION_ANY</option>
+          <option value="images_only">PLG_FIELDS_SMARTLINK_OPTION_VALIDATION_IMAGES_ONLY</option>
+          <option value="files_only">PLG_FIELDS_SMARTLINK_OPTION_VALIDATION_FILES_ONLY</option>
+          <option value="youtube_only">PLG_FIELDS_SMARTLINK_OPTION_VALIDATION_YOUTUBE_ONLY</option>
+          <option value="video_providers">PLG_FIELDS_SMARTLINK_OPTION_VALIDATION_VIDEO_PROVIDERS</option>
+        </field>
+        <field
+          name="allow_external_media"
+          type="radio"
+          label="PLG_FIELDS_SMARTLINK_ALLOW_EXTERNAL_MEDIA_LABEL"
+          default="1"
+          class="btn-group btn-group-yesno"
+          layout="joomla.form.field.radio.switcher"
+        >
+          <option value="0">JNO</option>
+          <option value="1">JYES</option>
+        </field>
+        <field
+          name="max_gallery_items"
+          type="number"
+          label="PLG_FIELDS_SMARTLINK_MAX_GALLERY_ITEMS_LABEL"
+          default="12"
+          min="1"
+          max="50"
+        />
+      </fieldset>
+    </fields>
+  </config>
+</extension>
