@@ -100,6 +100,7 @@ HTML;
             'validation_profile' => (string) ($this->element['validation_profile'] ?? ''),
             'allow_external_media' => (string) ($this->element['allow_external_media'] ?? ''),
             'max_gallery_items' => (string) ($this->element['max_gallery_items'] ?? ''),
+            'template_name' => (string) ($this->element['template_name'] ?? ''),
         ];
 
         return Schema::fieldConfigFromParams($attributes);

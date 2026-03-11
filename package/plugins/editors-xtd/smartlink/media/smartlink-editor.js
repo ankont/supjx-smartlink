@@ -112,7 +112,21 @@ import { JoomlaEditorButton } from "editor-api";
         download_filename: "",
         source_type: "",
         preview_image: "",
+        image_override: "",
         preview_alt: "",
+        show_icon: false,
+        show_image: false,
+        show_text: true,
+        display_inside: false,
+        click_individual_parts: false,
+        click_icon: false,
+        click_text: false,
+        click_image: false,
+        click_view: false,
+        structure: "inline",
+        show_summary: false,
+        show_type_label: false,
+        figure_caption_text: false,
         video: {
           controls: true,
           autoplay: false,
@@ -149,7 +163,7 @@ import { JoomlaEditorButton } from "editor-api";
           return;
         }
 
-        const canWrap = result.payload.action !== "embed" && selection !== "";
+        const canWrap = !result.payload.display_inside && selection !== "";
         const markup = canWrap
           ? (builder ? builder.buildMarkup(config, result.payload, selection) : result.markup)
           : result.markup;

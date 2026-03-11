@@ -51,10 +51,10 @@ final class Schema
      * @var array<int, string>
      */
     public const ACTIONS = [
+        'no_action',
         'link_open',
         'link_download',
         'preview_modal',
-        'embed',
     ];
 
     /**
@@ -90,6 +90,7 @@ final class Schema
 
         $payload['kind'] = isset($payload['kind']) && \in_array($payload['kind'], $allowedKinds, true) ? $payload['kind'] : $defaultKind;
         $payload['action'] = isset($payload['action']) && \in_array($payload['action'], $allowedActions, true) ? $payload['action'] : $defaultAction;
+
         $payload['value'] = self::normaliseValue($payload['value'] ?? '', $payload['kind']);
         $payload['label'] = trim((string) ($payload['label'] ?? ''));
         $payload['selection_label'] = trim((string) ($payload['selection_label'] ?? ''));
@@ -97,12 +98,34 @@ final class Schema
         $payload['target'] = trim((string) ($payload['target'] ?? ''));
         $payload['rel'] = trim((string) ($payload['rel'] ?? ''));
         $payload['css_class'] = trim((string) ($payload['css_class'] ?? ''));
+        $payload['icon_class'] = trim((string) ($payload['icon_class'] ?? ''));
         $payload['download_filename'] = trim((string) ($payload['download_filename'] ?? ''));
         $payload['source_type'] = self::normaliseSourceType((string) ($payload['source_type'] ?? ''), $payload['kind']);
+        $payload['popup_scope'] = self::normalisePopupScope((string) ($payload['popup_scope'] ?? ''), $payload['kind']);
         $payload['preview_image'] = self::sanitizeUrl((string) ($payload['preview_image'] ?? ''));
+        $payload['image_override'] = self::sanitizeUrl((string) ($payload['image_override'] ?? ''));
+        $payload['selection_image'] = self::sanitizeUrl((string) ($payload['selection_image'] ?? ''));
+        $payload['selection_image_alt'] = trim((string) ($payload['selection_image_alt'] ?? ''));
         $payload['preview_alt'] = trim((string) ($payload['preview_alt'] ?? ''));
+        $payload['selection_summary'] = self::sanitizeSummary((string) ($payload['selection_summary'] ?? ''));
+        $payload['show_icon'] = self::normaliseToggle($payload['kind'], 'icon', $payload['show_icon'] ?? false);
+        $payload['show_image'] = self::normaliseToggle($payload['kind'], 'image', $payload['show_image'] ?? false);
+        $payload['show_text'] = self::normaliseToggle($payload['kind'], 'text', $payload['show_text'] ?? true);
+        $payload['display_inside'] = self::normaliseToggle($payload['kind'], 'displayInside', $payload['display_inside'] ?? false);
+        $payload['click_individual_parts'] = self::normaliseBoolean($payload['click_individual_parts'] ?? false);
+        $payload['click_icon'] = self::normaliseBoolean($payload['click_icon'] ?? false);
+        $payload['click_text'] = self::normaliseBoolean($payload['click_text'] ?? false);
+        $payload['click_image'] = self::normaliseBoolean($payload['click_image'] ?? false);
+        $payload['click_view'] = self::normaliseBoolean($payload['click_view'] ?? false);
+        $payload['structure'] = self::normaliseStructure((string) ($payload['structure'] ?? 'inline'));
+        $payload['view_position'] = self::normaliseViewPosition((string) ($payload['view_position'] ?? 'after'));
+        $payload['show_summary'] = self::allowsSummary($payload['kind']) ? self::normaliseBoolean($payload['show_summary'] ?? false) : false;
+        $payload['show_type_label'] = self::allowsTypeLabel($payload['kind']) ? self::normaliseBoolean($payload['show_type_label'] ?? false) : false;
+        $payload['figure_caption_text'] = $payload['structure'] === 'figure' ? self::normaliseBoolean($payload['figure_caption_text'] ?? false) : false;
         $payload['video'] = self::normaliseVideoOptions($payload['video'] ?? []);
         $payload['gallery'] = self::normaliseGalleryOptions($payload['gallery'] ?? []);
+
+        $payload = self::normaliseContentSelection($payload);
 
         if (!$payload['value']) {
             throw new InvalidArgumentException('SmartLink value is required.');
@@ -114,6 +137,10 @@ final class Schema
 
         if (!\in_array($payload['action'], $allowedActions, true)) {
             throw new InvalidArgumentException('SmartLink action is not allowed for this field.');
+        }
+
+        if (empty($payload['display_inside']) && empty($payload['show_icon']) && empty($payload['show_image']) && empty($payload['show_text'])) {
+            throw new InvalidArgumentException('SmartLink must display at least one of icon, image, or text.');
         }
 
         self::validateMediaRules($payload, $config);
@@ -146,8 +173,8 @@ final class Schema
         $array['validation_profile'] = (string) ($array['validation_profile'] ?? 'any');
         $array['allow_external_media'] = (int) ($array['allow_external_media'] ?? 1);
         $array['max_gallery_items'] = max(1, (int) ($array['max_gallery_items'] ?? 12));
+        $array['template_name'] = self::sanitizeTemplateName((string) ($array['template_name'] ?? ''));
         $array['advanced_kinds'] = array_values(array_intersect($array['allowed_kinds'], self::ADVANCED_KINDS));
-        $array['ui'] = self::uiConfig($array);
         $array['metadata_required_kinds'] = array_values(array_intersect($array['allowed_kinds'], self::requiredMetadataKinds()));
 
         return $array;
@@ -273,6 +300,253 @@ final class Schema
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private static function kindCapabilities(string $kind): array
+    {
+        $base = [
+            'icon' => ['mode' => 'available', 'default' => false],
+            'image' => ['mode' => 'hidden', 'default' => false],
+            'text' => ['mode' => 'available', 'default' => true],
+            'displayInside' => ['mode' => 'available', 'default' => false],
+            'summary' => false,
+            'typeLabel' => false,
+            'imageOverride' => false,
+        ];
+
+        switch ($kind) {
+            case 'com_content_article':
+            case 'com_content_category':
+                $base['image'] = ['mode' => 'available', 'default' => false];
+                $base['summary'] = true;
+                $base['typeLabel'] = true;
+                $base['imageOverride'] = true;
+
+                return $base;
+
+            case 'com_contact_contact':
+                $base['image'] = ['mode' => 'available', 'default' => false];
+                $base['summary'] = true;
+                $base['typeLabel'] = true;
+                $base['imageOverride'] = true;
+
+                return $base;
+
+            case 'anchor':
+            case 'email':
+            case 'phone':
+                $base['displayInside'] = ['mode' => 'hidden', 'default' => false];
+
+                return $base;
+
+            case 'media_file':
+                $base['image'] = ['mode' => 'available', 'default' => false];
+                $base['icon'] = ['mode' => 'available', 'default' => true];
+                $base['typeLabel'] = true;
+                $base['imageOverride'] = true;
+
+                return $base;
+
+            case 'image':
+                $base['image'] = ['mode' => 'available', 'default' => true];
+                $base['icon'] = ['mode' => 'available', 'default' => false];
+                $base['text'] = ['mode' => 'available', 'default' => false];
+                $base['displayInside'] = ['mode' => 'available', 'default' => true];
+
+                return $base;
+
+            case 'video':
+                $base['image'] = ['mode' => 'available', 'default' => false];
+                $base['icon'] = ['mode' => 'available', 'default' => false];
+                $base['text'] = ['mode' => 'available', 'default' => false];
+                $base['displayInside'] = ['mode' => 'available', 'default' => false];
+                $base['typeLabel'] = true;
+                $base['imageOverride'] = true;
+
+                return $base;
+
+            case 'gallery':
+                $base['icon'] = ['mode' => 'hidden', 'default' => false];
+                $base['image'] = ['mode' => 'fixed', 'default' => true];
+                $base['text'] = ['mode' => 'hidden', 'default' => false];
+                $base['displayInside'] = ['mode' => 'fixed', 'default' => true];
+
+                return $base;
+
+            default:
+                return $base;
+        }
+    }
+
+    private static function normaliseBoolean($value, bool $fallback = false): bool
+    {
+        if (\is_bool($value)) {
+            return $value;
+        }
+
+        if (\is_int($value) || \is_float($value)) {
+            return (bool) $value;
+        }
+
+        if (\is_string($value)) {
+            $value = strtolower(trim($value));
+
+            if (\in_array($value, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+
+            if (\in_array($value, ['0', 'false', 'no', 'off', ''], true)) {
+                return false;
+            }
+        }
+
+        return $fallback;
+    }
+
+    private static function normaliseToggle(string $kind, string $key, $value): bool
+    {
+        $capabilities = self::kindCapabilities($kind);
+        $definition = $capabilities[$key] ?? ['mode' => 'hidden', 'default' => false];
+        $mode = (string) ($definition['mode'] ?? 'hidden');
+
+        if ($mode === 'fixed') {
+            return true;
+        }
+
+        if ($mode === 'hidden') {
+            return false;
+        }
+
+        return self::normaliseBoolean($value, (bool) ($definition['default'] ?? false));
+    }
+
+    private static function normaliseStructure(string $value): string
+    {
+        $value = trim($value);
+
+        return \in_array($value, ['inline', 'block', 'figure'], true) ? $value : 'inline';
+    }
+
+    private static function allowsSummary(string $kind): bool
+    {
+        return !empty(self::kindCapabilities($kind)['summary']);
+    }
+
+    private static function allowsTypeLabel(string $kind): bool
+    {
+        return !empty(self::kindCapabilities($kind)['typeLabel']);
+    }
+
+    private static function canClickViewOnPage(string $kind): bool
+    {
+        return $kind === 'image';
+    }
+
+    /**
+     * @param   array<string, mixed>  $payload
+     *
+     * @return  array<string, mixed>
+     */
+    private static function normaliseContentSelection(array $payload): array
+    {
+        if (($payload['kind'] ?? '') === 'gallery') {
+            $payload['show_icon'] = false;
+            $payload['show_image'] = true;
+            $payload['show_text'] = false;
+        }
+
+        if (empty($payload['display_inside']) && empty($payload['show_icon']) && empty($payload['show_image']) && empty($payload['show_text'])) {
+            $fallbackKeys = ($payload['kind'] ?? '') === 'image' ? ['image', 'text', 'icon'] : ['text', 'image', 'icon'];
+
+            foreach ($fallbackKeys as $key) {
+                if (self::normaliseToggle((string) ($payload['kind'] ?? ''), $key, null)) {
+                    $payload['show_' . $key] = true;
+                    break;
+                }
+            }
+        }
+
+        return self::normaliseClickSelection($payload);
+    }
+
+    /**
+     * @param   array<string, mixed>  $payload
+     *
+     * @return  array<string, mixed>
+     */
+    private static function normaliseClickSelection(array $payload): array
+    {
+        if (($payload['action'] ?? 'no_action') === 'no_action') {
+            $payload['click_individual_parts'] = false;
+            $payload['click_icon'] = false;
+            $payload['click_text'] = false;
+            $payload['click_image'] = false;
+            $payload['click_view'] = false;
+
+            return $payload;
+        }
+
+        $available = [
+            'click_icon' => !empty($payload['show_icon']),
+            'click_text' => !empty($payload['show_text']) && ($payload['kind'] ?? '') !== 'gallery',
+            'click_image' => !empty($payload['show_image']),
+            'click_view' => !empty($payload['display_inside']) && self::canClickViewOnPage((string) ($payload['kind'] ?? '')),
+        ];
+
+        if (empty($payload['click_individual_parts'])) {
+            $payload['click_icon'] = false;
+            $payload['click_text'] = false;
+            $payload['click_image'] = false;
+            $payload['click_view'] = false;
+
+            return $payload;
+        }
+
+        foreach ($available as $key => $isAvailable) {
+            $payload[$key] = $isAvailable ? self::normaliseBoolean($payload[$key] ?? false) : false;
+        }
+
+        if (!\in_array(true, $available, true)) {
+            $payload['click_individual_parts'] = false;
+            $payload['click_icon'] = false;
+            $payload['click_text'] = false;
+            $payload['click_image'] = false;
+            $payload['click_view'] = false;
+
+            return $payload;
+        }
+
+        if (empty($payload['click_icon']) && empty($payload['click_text']) && empty($payload['click_image']) && empty($payload['click_view'])) {
+            foreach (['click_text', 'click_image', 'click_icon', 'click_view'] as $key) {
+                if (!empty($available[$key])) {
+                    $payload[$key] = true;
+                    break;
+                }
+            }
+        }
+
+        return $payload;
+    }
+
+    private static function normalisePopupScope(string $value, string $kind): string
+    {
+        $value = trim($value);
+
+        if (!\in_array($kind, ['com_content_article', 'com_content_category'], true)) {
+            return '';
+        }
+
+        return \in_array($value, ['component', 'page'], true) ? $value : 'component';
+    }
+
+    private static function normaliseViewPosition(string $value): string
+    {
+        $value = trim($value);
+
+        return \in_array($value, ['before', 'after'], true) ? $value : 'after';
+    }
+
+    /**
      * @param   mixed  $value
      *
      * @return  array<int, string>
@@ -312,264 +586,22 @@ final class Schema
         return $value;
     }
 
-    /**
-     * @param   array<string, mixed>  $config
-     *
-     * @return  array<string, mixed>
-     */
-    private static function uiConfig(array $config): array
+    private static function sanitizeSummary(string $value): string
     {
-        $allowedKinds = self::normaliseStringList($config['allowed_kinds'] ?? array_merge(self::BASIC_KINDS, self::ADVANCED_KINDS, self::MEDIA_KINDS));
-        $allowedActions = self::normaliseStringList($config['allowed_actions'] ?? self::ACTIONS);
-        $kindDefinitions = self::kindUiDefinitions();
-        $groups = [];
+        $value = trim(strip_tags($value));
+        $value = preg_replace('/\s+/u', ' ', $value) ?: '';
 
-        foreach (self::groupLabels() as $groupKey => $groupLabel) {
-            $groupKinds = [];
-
-            foreach ($kindDefinitions as $kind => $definition) {
-                if (($definition['group'] ?? '') !== $groupKey || !\in_array($kind, $allowedKinds, true)) {
-                    continue;
-                }
-
-                $displayModes = array_values(array_filter(
-                    (array) ($definition['display_modes'] ?? []),
-                    static fn (array $mode): bool => \in_array((string) ($mode['action'] ?? ''), $allowedActions, true)
-                ));
-
-                $definition['display_modes'] = $displayModes;
-                $groupKinds[] = $kind;
-                $kindDefinitions[$kind] = $definition;
-            }
-
-            if ($groupKinds !== []) {
-                $groups[] = [
-                    'key' => $groupKey,
-                    'label' => $groupLabel,
-                    'kinds' => $groupKinds,
-                ];
-            }
-        }
-
-        return [
-            'groups' => $groups,
-            'kinds' => $kindDefinitions,
-        ];
+        return function_exists('mb_substr') ? mb_substr($value, 0, 320) : substr($value, 0, 320);
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private static function groupLabels(): array
+    private static function sanitizeTemplateName(string $value): string
     {
-        return [
-            'simple_links' => 'Simple Links',
-            'joomla_items' => 'Joomla Items',
-            'media' => 'Media',
-            'advanced' => 'Advanced',
-        ];
-    }
+        $value = trim(str_replace('\\', '/', $value));
+        $value = preg_replace('#[^A-Za-z0-9/_-]#', '', $value) ?: '';
+        $value = preg_replace('#/+#', '/', $value) ?: '';
+        $value = trim($value, '/');
 
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    private static function kindUiDefinitions(): array
-    {
-        return [
-            'external_url' => [
-                'label' => 'External Link',
-                'group' => 'simple_links',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open link'],
-                    ['action' => 'link_download', 'label' => 'Download link'],
-                    ['action' => 'preview_modal', 'label' => 'Open in popup'],
-                ],
-            ],
-            'anchor' => [
-                'label' => 'Anchor',
-                'group' => 'simple_links',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Jump to anchor'],
-                ],
-            ],
-            'email' => [
-                'label' => 'Email',
-                'group' => 'simple_links',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Show email link'],
-                ],
-            ],
-            'phone' => [
-                'label' => 'Phone',
-                'group' => 'simple_links',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Show phone link'],
-                ],
-            ],
-            'com_content_article' => [
-                'label' => 'Article',
-                'group' => 'joomla_items',
-                'uses_picker' => true,
-                'allows_manual_entry' => false,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open article link'],
-                    ['action' => 'preview_modal', 'label' => 'Open in popup'],
-                ],
-            ],
-            'com_content_category' => [
-                'label' => 'Category',
-                'group' => 'joomla_items',
-                'uses_picker' => true,
-                'allows_manual_entry' => false,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open category link'],
-                    ['action' => 'preview_modal', 'label' => 'Open in popup'],
-                ],
-            ],
-            'menu_item' => [
-                'label' => 'Menu Item',
-                'group' => 'joomla_items',
-                'uses_picker' => true,
-                'allows_manual_entry' => false,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open menu item link'],
-                ],
-            ],
-            'com_tags_tag' => [
-                'label' => 'Tags',
-                'group' => 'joomla_items',
-                'uses_picker' => true,
-                'allows_manual_entry' => false,
-                'requires_metadata' => true,
-                'supports_multiple' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open tags link'],
-                ],
-            ],
-            'com_contact_contact' => [
-                'label' => 'Contact',
-                'group' => 'joomla_items',
-                'uses_picker' => true,
-                'allows_manual_entry' => false,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open contact link'],
-                ],
-            ],
-            'media_file' => [
-                'label' => 'Media File',
-                'group' => 'media',
-                'uses_picker' => true,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'sources' => [
-                    ['value' => 'local', 'label' => 'Media Library'],
-                    ['value' => 'external', 'label' => 'Web address'],
-                ],
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Text link'],
-                    ['action' => 'link_download', 'label' => 'Download link'],
-                    ['action' => 'preview_modal', 'label' => 'Open in popup'],
-                ],
-            ],
-            'image' => [
-                'label' => 'Image',
-                'group' => 'media',
-                'uses_picker' => true,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'sources' => [
-                    ['value' => 'local', 'label' => 'Media Library'],
-                    ['value' => 'external', 'label' => 'Web address'],
-                ],
-                'display_modes' => [
-                    ['action' => 'embed', 'label' => 'Show image'],
-                    ['action' => 'preview_modal', 'label' => 'Thumbnail opens full image'],
-                    ['action' => 'link_open', 'label' => 'Show text link to the image'],
-                ],
-            ],
-            'video' => [
-                'label' => 'Video',
-                'group' => 'media',
-                'uses_picker' => true,
-                'allows_manual_entry' => true,
-                'requires_metadata' => false,
-                'sources' => [
-                    ['value' => 'local', 'label' => 'Media Library'],
-                    ['value' => 'provider', 'label' => 'YouTube or Vimeo'],
-                    ['value' => 'external', 'label' => 'Direct web address'],
-                ],
-                'display_modes' => [
-                    ['action' => 'embed', 'label' => 'Play inside the page'],
-                    ['action' => 'preview_modal', 'label' => 'Show a preview image first'],
-                    ['action' => 'link_open', 'label' => 'Show text link to the video'],
-                ],
-            ],
-            'gallery' => [
-                'label' => 'Gallery',
-                'group' => 'media',
-                'uses_picker' => true,
-                'allows_manual_entry' => true,
-                'requires_metadata' => true,
-                'supports_multiple' => true,
-                'sources' => [
-                    ['value' => 'local', 'label' => 'Media Library'],
-                    ['value' => 'external', 'label' => 'Web address'],
-                    ['value' => 'provider', 'label' => 'YouTube or Vimeo'],
-                ],
-                'display_modes' => [
-                    ['action' => 'embed', 'label' => 'Grid gallery'],
-                    ['action' => 'link_open', 'label' => 'Link list'],
-                ],
-            ],
-            'relative_url' => [
-                'label' => 'Relative Link',
-                'group' => 'advanced',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open link'],
-                    ['action' => 'link_download', 'label' => 'Download link'],
-                    ['action' => 'preview_modal', 'label' => 'Open in popup'],
-                ],
-            ],
-            'user_profile' => [
-                'label' => 'User Profile',
-                'group' => 'advanced',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open profile link'],
-                ],
-            ],
-            'advanced_route' => [
-                'label' => 'Advanced Route',
-                'group' => 'advanced',
-                'uses_picker' => false,
-                'allows_manual_entry' => true,
-                'requires_metadata' => true,
-                'display_modes' => [
-                    ['action' => 'link_open', 'label' => 'Open link'],
-                ],
-            ],
-        ];
+        return str_contains($value, '..') ? '' : $value;
     }
 
     /**

@@ -17,7 +17,27 @@ final class TagResolver extends AbstractResolver
 
     public function resolve(array $payload): array
     {
-        $id = $this->resolveNumericId($payload['value'] ?? 0);
+        $rawValue = $payload['value'] ?? 0;
+
+        if (\is_array($rawValue)) {
+            $ids = array_values(array_filter(array_map(fn ($item): int => $this->resolveNumericId($item), $rawValue)));
+
+            if ($ids !== []) {
+                $query = 'index.php?option=com_tags&view=tag';
+
+                foreach ($ids as $id) {
+                    $query .= '&id[]=' . $id;
+                }
+
+                return $this->buildResult(
+                    $payload,
+                    $this->route($query),
+                    ['label' => $payload['label'] ?: 'Tags']
+                );
+            }
+        }
+
+        $id = $this->resolveNumericId($rawValue);
 
         return $this->buildResult(
             $payload,
@@ -26,4 +46,3 @@ final class TagResolver extends AbstractResolver
         );
     }
 }
-

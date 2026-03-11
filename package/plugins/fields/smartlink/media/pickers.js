@@ -84,6 +84,9 @@
   function normaliseContentSelection(kind, data) {
     const id = String(data.id || "").trim();
     const title = String(data.title || data.name || data.label || "").trim();
+    const summary = String(data.summary || data.description || data.introtext || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const image = String(data.image || data.image_intro || data.thumb_image || "").trim();
+    const imageAlt = String(data.image_alt || data.image_intro_alt || title).trim();
 
     switch (kind) {
       case "com_content_article":
@@ -97,7 +100,10 @@
 
         return {
           value: id,
-          label: title
+          label: title,
+          summary,
+          image,
+          image_alt: imageAlt
         };
       default:
         return null;
@@ -138,6 +144,7 @@
   function open(kind, options = {}) {
     const route = routeFor(kind);
     const seed = kind === "gallery" ? serialiseGallery(options.currentValue) : String(options.currentValue || "");
+    const supportsManualEntry = kind === "gallery" || !route;
 
     if (!window.HTMLDialogElement) {
       const answer = window.prompt(
@@ -163,16 +170,16 @@
           </div>
           <div class="smartlink-picker-dialog__body">
             ${route ? `<iframe class="smartlink-picker-dialog__frame" src="${route}" loading="lazy"></iframe>` : ""}
-            <label class="smartlink-builder__field smartlink-picker-dialog__value">
+            ${supportsManualEntry ? `<label class="smartlink-builder__field smartlink-picker-dialog__value">
               <span>${kind === "gallery" ? "One item per line: type|src|label|poster" : "Paste the selected value"}</span>
               ${kind === "gallery"
                 ? `<textarea class="form-control js-smartlink-value" rows="6">${seed}</textarea>`
                 : `<input class="form-control js-smartlink-value" type="text" value="${seed.replace(/"/g, "&quot;")}">`}
-            </label>
+            </label>` : ""}
           </div>
           <div class="smartlink-picker-dialog__footer">
             <button type="button" class="btn btn-secondary js-smartlink-cancel">Cancel</button>
-            <button type="button" class="btn btn-primary js-smartlink-apply">Apply</button>
+            ${supportsManualEntry ? `<button type="button" class="btn btn-primary js-smartlink-apply">${kind === "gallery" && route ? "Add selected" : "Apply"}</button>` : ""}
           </div>
         </div>
       `;
@@ -296,16 +303,23 @@
         lastMediaSelection = event.detail || readMediaSelection();
         const selection = normaliseMediaSelection(kind, lastMediaSelection);
 
-        if (!selection || !valueField) {
+        if (!selection) {
           return;
         }
 
         if (kind === "gallery") {
+          if (!valueField) {
+            return;
+          }
+
           appendGallerySelection(selection);
           return;
         }
 
-        valueField.value = String(selection.value || "");
+        if (valueField) {
+          valueField.value = String(selection.value || "");
+        }
+
         close(selection);
       };
 
@@ -313,7 +327,11 @@
 
       dialog.querySelector(".js-smartlink-close").addEventListener("click", () => close(null));
       dialog.querySelector(".js-smartlink-cancel").addEventListener("click", () => close(null));
-      dialog.querySelector(".js-smartlink-apply").addEventListener("click", applySelection);
+      const applyButton = dialog.querySelector(".js-smartlink-apply");
+
+      if (applyButton) {
+        applyButton.addEventListener("click", applySelection);
+      }
 
       document.body.appendChild(dialog);
       dialog.showModal();

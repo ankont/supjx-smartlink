@@ -35,12 +35,12 @@
         description="PLG_FIELDS_SMARTLINK_ALLOWED_ACTIONS_DESC"
         multiple="true"
         filter="raw"
-        default="link_open,link_download,preview_modal,embed"
+        default="no_action,link_open,link_download,preview_modal"
       >
+        <option value="no_action">PLG_FIELDS_SMARTLINK_OPTION_ACTION_NO_ACTION</option>
         <option value="link_open">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_OPEN</option>
         <option value="link_download">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_DOWNLOAD</option>
         <option value="preview_modal">PLG_FIELDS_SMARTLINK_OPTION_ACTION_PREVIEW_MODAL</option>
-        <option value="embed">PLG_FIELDS_SMARTLINK_OPTION_ACTION_EMBED</option>
       </field>
       <field
         name="default_kind"
@@ -71,10 +71,10 @@
         label="PLG_FIELDS_SMARTLINK_DEFAULT_ACTION_LABEL"
         default="link_open"
       >
+        <option value="no_action">PLG_FIELDS_SMARTLINK_OPTION_ACTION_NO_ACTION</option>
         <option value="link_open">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_OPEN</option>
         <option value="link_download">PLG_FIELDS_SMARTLINK_OPTION_ACTION_LINK_DOWNLOAD</option>
         <option value="preview_modal">PLG_FIELDS_SMARTLINK_OPTION_ACTION_PREVIEW_MODAL</option>
-        <option value="embed">PLG_FIELDS_SMARTLINK_OPTION_ACTION_EMBED</option>
       </field>
       <field
         name="validation_profile"

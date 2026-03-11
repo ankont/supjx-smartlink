@@ -35,10 +35,10 @@ final class Insert
                 'gallery',
             ],
             'allowed_actions' => [
+                'no_action',
                 'link_open',
                 'link_download',
                 'preview_modal',
-                'embed',
             ],
             'default_kind' => 'external_url',
             'default_action' => 'link_open',
