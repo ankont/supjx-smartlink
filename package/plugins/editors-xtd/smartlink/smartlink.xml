@@ -8,7 +8,7 @@
   <authorEmail>an_kont@yahoo.gr</authorEmail>
   <authorUrl>https://superor.wordpress.com</authorUrl>
   <element>smartlink</element>
-    <version>1.7.25</version>
+  <version>1.11.1</version>
   <description>PLG_EDITORS-XTD_SMARTLINK_XML_DESCRIPTION</description>
   <namespace path="src">SuperSoft\Plugin\EditorsXtd\Smartlink</namespace>
   <files>
@@ -25,4 +25,254 @@
   <media destination="plg_editors-xtd_smartlink" folder="media">
     <filename>smartlink-editor.js</filename>
   </media>
+  <config>
+    <fields name="params">
+      <fieldset name="basic" label="PLG_EDITORS-XTD_SMARTLINK_FIELDSET_BASIC">
+        <field
+          name="icon_stylesheet_url"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_ICON_STYLESHEET_URL_LABEL"
+          description="PLG_EDITORS-XTD_SMARTLINK_ICON_STYLESHEET_URL_DESC"
+          hint="https://cdn.example.com/icons.css"
+          filter="string"
+        />
+        <field
+          name="use_smartlink_styles"
+          type="radio"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_USE_STYLES_LABEL"
+          description="PLG_EDITORS-XTD_SMARTLINK_CONFIG_USE_STYLES_DESC"
+          default="1"
+          class="btn-group btn-group-yesno"
+          layout="joomla.form.field.radio.switcher"
+        >
+          <option value="0">JNO</option>
+          <option value="1">JYES</option>
+        </field>
+        <field
+          name="link_button_class"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_LINK_BUTTON_CLASS_LABEL"
+          description="PLG_EDITORS-XTD_SMARTLINK_CONFIG_LINK_BUTTON_CLASS_DESC"
+          default="smartlink-actionbtn"
+          hint="smartlink-actionbtn"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="html_output_mode"
+          type="list"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_HTML_OUTPUT_MODE_LABEL"
+          description="PLG_EDITORS-XTD_SMARTLINK_CONFIG_HTML_OUTPUT_MODE_DESC"
+          default="compact"
+        >
+          <option value="compact">PLG_EDITORS-XTD_SMARTLINK_CONFIG_HTML_OUTPUT_COMPACT</option>
+          <option value="pretty">PLG_EDITORS-XTD_SMARTLINK_CONFIG_HTML_OUTPUT_PRETTY</option>
+        </field>
+        <field
+          name="thumbnail_empty_mode"
+          type="list"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_EMPTY_MODE_LABEL"
+          default="generic"
+        >
+          <option value="empty">PLG_EDITORS-XTD_SMARTLINK_CONFIG_EMPTY_MODE_EMPTY</option>
+          <option value="generic">PLG_EDITORS-XTD_SMARTLINK_CONFIG_EMPTY_MODE_GENERIC</option>
+          <option value="specific">PLG_EDITORS-XTD_SMARTLINK_CONFIG_EMPTY_MODE_SPECIFIC</option>
+        </field>
+        <field
+          name="thumbnail_empty_class"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_EMPTY_CLASS_LABEL"
+          description="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_EMPTY_CLASS_DESC"
+          hint="smartlink-image-empty"
+          filter="string"
+          showon="thumbnail_empty_mode:generic,specific"
+        />
+        <field
+          name="thumbnail_position"
+          type="list"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_POSITION_LABEL"
+          default="inherit"
+        >
+          <option value="inherit">PLG_EDITORS-XTD_SMARTLINK_CONFIG_KEEP_DEFAULTS</option>
+          <option value="inline">PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_INLINE</option>
+          <option value="top">PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_TOP</option>
+          <option value="bottom">PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_BOTTOM</option>
+          <option value="left">PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_LEFT</option>
+          <option value="right">PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_RIGHT</option>
+        </field>
+        <field
+          name="thumbnail_ratio"
+          type="list"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_RATIO_LABEL"
+          default="inherit"
+        >
+          <option value="inherit">PLG_EDITORS-XTD_SMARTLINK_CONFIG_KEEP_DEFAULTS</option>
+          <option value="auto">PLG_EDITORS-XTD_SMARTLINK_CONFIG_RATIO_AUTO</option>
+          <option value="1-1">1:1</option>
+          <option value="4-3">4:3</option>
+          <option value="16-9">16:9</option>
+        </field>
+        <field
+          name="thumbnail_fit"
+          type="list"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_FIT_LABEL"
+          default="inherit"
+        >
+          <option value="inherit">PLG_EDITORS-XTD_SMARTLINK_CONFIG_KEEP_DEFAULTS</option>
+          <option value="cover">PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_COVER</option>
+          <option value="contain">PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_CONTAIN</option>
+          <option value="fill">PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_FILL</option>
+          <option value="none">PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_NONE</option>
+          <option value="scale-down">PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_SCALE_DOWN</option>
+        </field>
+        <field
+          name="thumbnail_size"
+          type="list"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_THUMBNAIL_SIZE_LABEL"
+          default="inherit"
+        >
+          <option value="inherit">PLG_EDITORS-XTD_SMARTLINK_CONFIG_KEEP_DEFAULTS</option>
+          <option value="sm">PLG_EDITORS-XTD_SMARTLINK_CONFIG_SIZE_SMALL</option>
+          <option value="md">PLG_EDITORS-XTD_SMARTLINK_CONFIG_SIZE_MEDIUM</option>
+          <option value="lg">PLG_EDITORS-XTD_SMARTLINK_CONFIG_SIZE_LARGE</option>
+        </field>
+        <field
+          name="thumbnail_position_class_inline"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_CLASS_INLINE_LABEL"
+          default="smartlink-thumb--inline"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_position_class_top"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_CLASS_TOP_LABEL"
+          default="smartlink-thumb--top"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_position_class_bottom"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_CLASS_BOTTOM_LABEL"
+          default="smartlink-thumb--bottom"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_position_class_left"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_CLASS_LEFT_LABEL"
+          default="smartlink-thumb--left"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_position_class_right"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_POSITION_CLASS_RIGHT_LABEL"
+          default="smartlink-thumb--right"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_ratio_class_auto"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_RATIO_CLASS_AUTO_LABEL"
+          default="smartlink-thumb--ratio-auto"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_ratio_class_1_1"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_RATIO_CLASS_1_1_LABEL"
+          default="smartlink-thumb--ratio-1-1"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_ratio_class_4_3"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_RATIO_CLASS_4_3_LABEL"
+          default="smartlink-thumb--ratio-4-3"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_ratio_class_16_9"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_RATIO_CLASS_16_9_LABEL"
+          default="smartlink-thumb--ratio-16-9"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_fit_class_cover"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_CLASS_COVER_LABEL"
+          default="smartlink-thumb--fit-cover"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_fit_class_contain"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_CLASS_CONTAIN_LABEL"
+          default="smartlink-thumb--fit-contain"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_fit_class_fill"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_CLASS_FILL_LABEL"
+          default="smartlink-thumb--fit-fill"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_fit_class_none"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_CLASS_NONE_LABEL"
+          default="smartlink-thumb--fit-none"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_fit_class_scale_down"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_FIT_CLASS_SCALE_DOWN_LABEL"
+          default="smartlink-thumb--fit-scale-down"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_size_class_sm"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_SIZE_CLASS_SM_LABEL"
+          default="smartlink-thumb--sm"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_size_class_md"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_SIZE_CLASS_MD_LABEL"
+          default="smartlink-thumb--md"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+        <field
+          name="thumbnail_size_class_lg"
+          type="text"
+          label="PLG_EDITORS-XTD_SMARTLINK_CONFIG_SIZE_CLASS_LG_LABEL"
+          default="smartlink-thumb--lg"
+          filter="string"
+          showon="use_smartlink_styles:0"
+        />
+      </fieldset>
+    </fields>
+  </config>
 </extension>

@@ -1,5 +1,5 @@
 build/output/
+build/stage/
 build/dist/
 build/tmp/
 *.zip
-

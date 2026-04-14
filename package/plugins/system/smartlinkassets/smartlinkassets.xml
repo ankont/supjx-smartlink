@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade">
+  <name>System - SuperSoftJx - SmartLink Assets</name>
+  <author>SuperSoft</author>
+  <creationDate>2026-03-23</creationDate>
+  <copyright>(C) SuperSoft</copyright>
+  <license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+  <authorEmail>an_kont@yahoo.gr</authorEmail>
+  <authorUrl>https://superor.wordpress.com</authorUrl>
+  <element>smartlinkassets</element>
+  <version>1.11.1</version>
+  <description>Loads SmartLink frontend assets for article-body markup when built-in SmartLink styles are enabled.</description>
+  <namespace path="src">SuperSoft\Plugin\System\Smartlinkassets</namespace>
+  <files>
+    <folder plugin="smartlinkassets">services</folder>
+    <filename>smartlinkassets.php</filename>
+    <folder>src</folder>
+  </files>
+</extension>

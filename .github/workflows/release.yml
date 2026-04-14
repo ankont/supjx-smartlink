@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate tag matches manifest versions
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $expectedVersion = $tag.TrimStart('v')
+          $manifestPaths = @(
+              'package/pkg_smartlink.xml',
+              'package/plugins/fields/smartlink/smartlink.xml',
+              'package/plugins/editors-xtd/smartlink/smartlink.xml'
+          )
+
+          foreach ($manifestPath in $manifestPaths) {
+              [xml]$manifest = Get-Content $manifestPath -Raw
+              $versionNode = $manifest.SelectSingleNode('/extension/version')
+              $version = if ($null -ne $versionNode) { $versionNode.InnerText.Trim() } else { '' }
+
+              if ([string]::IsNullOrWhiteSpace($version)) {
+                  throw "Version element not found in $manifestPath."
+              }
+
+              if ($version -ne $expectedVersion) {
+                  throw "Tag '$tag' does not match version '$version' in $manifestPath."
+              }
+          }
+
+      - name: Build installable ZIP
+        shell: pwsh
+        run: ./build/build.ps1
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            build/output/pkg_smartlink_v*.zip

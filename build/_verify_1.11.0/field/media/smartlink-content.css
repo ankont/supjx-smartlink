@@ -1,0 +1,413 @@
+.smartlink,
+.smartlink-fallback {
+  max-width: 100%;
+  color: inherit;
+  text-decoration: inherit;
+}
+
+.smartlink-view[hidden],
+.smartlink-gallery[hidden],
+figure.smartlink-image[hidden],
+.smartlink-wrapper [hidden] {
+  display: none !important;
+}
+
+a.smartlink,
+button.smartlink,
+span.smartlink,
+.smartlink-inline-viewer__meta--inline,
+.smartlink-part {
+  display: inline-block;
+  display: inline flow-root;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.smartlink-actionbtn,
+.smartlink-part.smartlink-actionbtn {
+  display: inline-block;
+  display: inline flow-root;
+  max-width: 100%;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  text-decoration: inherit;
+  vertical-align: top;
+  cursor: pointer;
+}
+
+button.smartlink-actionbtn,
+button.smartlink-part.smartlink-actionbtn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-block;
+  display: inline flow-root;
+  max-width: 100%;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  text-decoration: inherit;
+  vertical-align: top;
+  cursor: pointer;
+}
+
+.smartlink-actionbtn:hover,
+.smartlink-actionbtn:focus-visible,
+.smartlink-part.smartlink-actionbtn:hover,
+.smartlink-part.smartlink-actionbtn:focus-visible {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+button.smartlink-actionbtn:focus-visible,
+button.smartlink-part.smartlink-actionbtn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.smartlink-part {
+  max-width: 100%;
+  color: inherit;
+  text-decoration: inherit;
+}
+
+div.smartlink,
+figure.smartlink,
+.smartlink-inline-viewer,
+a.smartlink > figure {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  width: min(100%, 760px);
+}
+
+div.smartlink-wrapper {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 12px;
+}
+
+span.smartlink-wrapper {
+  display: inline-grid;
+  justify-items: start;
+  align-content: start;
+  gap: 12px;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+div.smartlink {
+  justify-items: center;
+  text-align: center;
+}
+
+.smartlink-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  color: currentColor;
+}
+
+.smartlink-thumb {
+  --smartlink-thumb-size: var(--smartlink-thumb-md, 10rem);
+  display: inline-block;
+  inline-size: min(100%, var(--smartlink-thumb-size));
+  margin: 0 12px 0 0;
+  overflow: hidden;
+  border-radius: 10px;
+  vertical-align: top;
+}
+
+.smartlink-thumb--inline {
+  margin: 0 12px 0 0;
+}
+
+.smartlink-thumb--top {
+  display: block;
+  margin: 0 0 12px;
+}
+
+.smartlink-thumb--bottom {
+  display: block;
+  margin: 12px 0 0;
+}
+
+.smartlink-thumb--left {
+  float: left;
+  margin: 0 12px 12px 0;
+}
+
+.smartlink-thumb--right {
+  float: right;
+  margin: 0 0 12px 12px;
+}
+
+.smartlink-thumb--sm {
+  --smartlink-thumb-size: var(--smartlink-thumb-sm, 6rem);
+}
+
+.smartlink-thumb--md {
+  --smartlink-thumb-size: var(--smartlink-thumb-md, 10rem);
+}
+
+.smartlink-thumb--lg {
+  --smartlink-thumb-size: var(--smartlink-thumb-lg, 14rem);
+}
+
+.smartlink-thumb--ratio-1-1 {
+  aspect-ratio: 1 / 1;
+}
+
+.smartlink-thumb--ratio-4-3 {
+  aspect-ratio: 4 / 3;
+}
+
+.smartlink-thumb--ratio-16-9 {
+  aspect-ratio: 16 / 9;
+}
+
+.smartlink-thumb > img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border: 0;
+  object-fit: cover;
+}
+
+.smartlink-thumb--fit-cover > img {
+  object-fit: cover;
+}
+
+.smartlink-thumb--fit-contain > img {
+  object-fit: contain;
+  background: #fff;
+}
+
+.smartlink-thumb--fit-fill > img {
+  object-fit: fill;
+}
+
+.smartlink-thumb--fit-none > img {
+  object-fit: none;
+}
+
+.smartlink-thumb--fit-scale-down > img {
+  object-fit: scale-down;
+}
+
+.smartlink-thumb--ratio-1-1 > img,
+.smartlink-thumb--ratio-4-3 > img,
+.smartlink-thumb--ratio-16-9 > img {
+  height: 100%;
+}
+
+.smartlink-thumb--empty {
+  min-block-size: 6.5rem;
+}
+
+.smartlink-thumb--ratio-1-1.smartlink-thumb--empty,
+.smartlink-thumb--ratio-4-3.smartlink-thumb--empty,
+.smartlink-thumb--ratio-16-9.smartlink-thumb--empty {
+  min-block-size: 0;
+}
+
+.smartlink-thumb--empty.smartlink-thumb--sm {
+  min-block-size: 4.5rem;
+}
+
+.smartlink-thumb--empty.smartlink-thumb--md {
+  min-block-size: 6.5rem;
+}
+
+.smartlink-thumb--empty.smartlink-thumb--lg {
+  min-block-size: 8.75rem;
+}
+
+.smartlink-thumb > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.smartlink-image-empty {
+  min-height: inherit;
+  border: 1px dashed currentColor;
+  border-radius: inherit;
+  opacity: 0.35;
+}
+
+a.smartlink::after,
+button.smartlink::after,
+span.smartlink::after,
+.smartlink-inline-viewer__meta--inline::after,
+.smartlink-part::after,
+button.smartlink-part::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+.smartlink-thumb > img,
+.smartlink-view > img,
+.smartlink-view img,
+.smartlink-view iframe,
+.smartlink-video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+figure.smartlink-image {
+  display: block;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.smartlink-inline-viewer__meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.smartlink-inline-viewer__meta--inline {
+  width: auto;
+  max-width: 100%;
+}
+
+div.smartlink-wrapper > a.smartlink,
+div.smartlink-wrapper > span.smartlink,
+div.smartlink-wrapper > .smartlink-inline-viewer__meta,
+div.smartlink-wrapper > .smartlink-gallery,
+div.smartlink-wrapper > .smartlink-view,
+div.smartlink-wrapper > video.smartlink-video,
+div.smartlink-wrapper > figure.smartlink-image,
+div.smartlink-wrapper > .smartlink-thumb,
+div.smartlink-wrapper > div.smartlink {
+  justify-self: center;
+  max-width: min(100%, 760px);
+}
+
+div.smartlink-wrapper > .smartlink-inline-viewer__meta,
+div.smartlink .smartlink-inline-viewer__meta {
+  justify-items: center;
+  text-align: center;
+}
+
+span.smartlink-wrapper > a.smartlink,
+span.smartlink-wrapper > span.smartlink,
+span.smartlink-wrapper > .smartlink-gallery,
+span.smartlink-wrapper > .smartlink-view,
+span.smartlink-wrapper > video.smartlink-video,
+span.smartlink-wrapper > figure.smartlink-image,
+span.smartlink-wrapper > .smartlink-thumb {
+  justify-self: start;
+  max-width: 100%;
+}
+
+.smartlink-type {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.smartlink-summary {
+  display: block;
+  width: 100%;
+  line-height: 1.5;
+}
+
+.smartlink-caption {
+  display: grid;
+  gap: 6px;
+}
+
+.smartlink-caption-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.smartlink-view {
+  display: block;
+  width: min(100%, 760px);
+  min-height: 420px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.smartlink-view iframe {
+  min-height: 420px;
+  border: 0;
+}
+
+.smartlink-links {
+  display: grid;
+  gap: 12px;
+}
+
+.smartlink-gallery {
+  display: grid;
+  grid-template-columns: repeat(var(--smartlink-gallery-columns, 3), minmax(0, 1fr));
+  gap: var(--smartlink-gallery-gap, 16px);
+}
+
+.smartlink-item {
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.smartlink-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.smartlink-gallery--cover .smartlink-item img {
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
+}
+
+.smartlink-gallery--contain .smartlink-item img {
+  object-fit: contain;
+  aspect-ratio: 4 / 3;
+  background: #fff;
+}
+
+.smartlink-gallery--stretch .smartlink-item img {
+  object-fit: fill;
+  aspect-ratio: 4 / 3;
+}
+
+.smartlink-gallery--stretch_width .smartlink-item img {
+  object-fit: fill;
+  width: 100%;
+  height: auto;
+}
+
+.smartlink-gallery--stretch_height .smartlink-item img {
+  object-fit: fill;
+  width: auto;
+  height: 100%;
+  min-height: 180px;
+}
+
+.smartlink-item-label {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  padding: 16px;
+  text-align: center;
+}
