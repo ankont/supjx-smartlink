@@ -4,6 +4,67 @@
   const DEFAULT_CONTENT_SCRIPT_URL = "/media/plg_fields_smartlink/smartlink-content.js";
   const ACTIONS = ["no_action", "link_open", "link_download", "preview_modal", "toggle_view"];
   const LEGACY_DEFAULT_ACTIONS = ["no_action", "link_open", "link_download", "preview_modal"];
+  const CURATED_ICON_SUGGESTIONS = [
+    "fa-solid fa-link",
+    "fa-solid fa-arrow-up-right-from-square",
+    "fa-solid fa-thumbtack",
+    "fa-solid fa-envelope",
+    "fa-solid fa-phone",
+    "fa-solid fa-sitemap",
+    "fa-solid fa-tags",
+    "fa-solid fa-video",
+    "fa-solid fa-route",
+    "fa-solid fa-user",
+    "fa-solid fa-image",
+    "fa-solid fa-images",
+    "fa-solid fa-file-lines",
+    "fa-solid fa-folder-open",
+    "fa-solid fa-circle-info",
+    "fa-solid fa-circle-question",
+    "fa-solid fa-globe",
+    "fa-solid fa-book",
+    "fa-solid fa-book-open",
+    "fa-solid fa-download",
+    "fa-solid fa-play",
+    "fa-solid fa-photo-film",
+    "fa-solid fa-share-nodes",
+    "fa-regular fa-newspaper",
+    "fa-regular fa-folder-open",
+    "fa-regular fa-user",
+    "fa-regular fa-file-lines",
+    "fa-regular fa-image",
+    "fa-regular fa-images",
+    "fa-brands fa-youtube",
+    "fa-brands fa-vimeo",
+    "fa-brands fa-facebook",
+    "fa-brands fa-instagram",
+    "fa-brands fa-x-twitter",
+    "fa-brands fa-linkedin"
+  ];
+  const ICON_STYLE_GROUPS = [
+    ["fa-solid"],
+    ["fa-regular"],
+    ["fa-brands"],
+    ["fa-light"],
+    ["fa-thin"],
+    ["fa-duotone"],
+    ["fa-sharp", "fa-solid"],
+    ["fa-sharp", "fa-regular"],
+    ["fa-sharp", "fa-light"],
+    ["fa-sharp", "fa-thin"],
+    ["fa-sharp-duotone"]
+  ];
+  const ICON_STYLE_TOKENS = new Set([
+    "fa",
+    "fas",
+    "far",
+    "fab",
+    "fal",
+    "fat",
+    "fad",
+    ...ICON_STYLE_GROUPS.flat()
+  ]);
+  const ICON_SUGGESTION_CACHE = new Map();
   const DEFAULT_UI_STRINGS = {
     group_simple_links: "Simple Links",
     group_joomla_items: "Joomla Items",
@@ -146,6 +207,7 @@
     field_gap: "Gap",
     field_how_items_fit: "How the items fit",
     field_item_title: "Item title",
+    button_choose_image: "Choose image",
     subsection_thumbnail_overrides: "Thumbnail Overrides",
     video_show_controls: "Show controls",
     video_autoplay: "Start playing automatically",
@@ -1273,6 +1335,229 @@ a {
 
   function iconClassName(value, kind = "") {
     return String(value || "").trim() || defaultIconClass(kind);
+  }
+
+  function iconStylesheetUrls(config) {
+    return Array.from(new Set(
+      [String(config?.icon_stylesheet_url || DEFAULT_ICON_STYLESHEET_URL).trim()]
+        .map((href) => absolutePreviewAssetUrl(href, siteRootUrl()))
+        .filter(Boolean)
+    ));
+  }
+
+  function ensureBuilderStylesheet(href, marker, onLoad = null) {
+    const absoluteHref = absolutePreviewAssetUrl(href, siteRootUrl());
+
+    if (!absoluteHref || !document.head) {
+      return;
+    }
+
+    const existing = document.head.querySelector(`link[rel="stylesheet"][${marker}]`);
+
+    if (existing) {
+      return;
+    }
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = absoluteHref;
+    link.setAttribute(marker, absoluteHref);
+
+    if (typeof onLoad === "function") {
+      link.addEventListener("load", () => onLoad(absoluteHref), { once: true });
+    }
+
+    document.head.appendChild(link);
+  }
+
+  function ensureBuilderIconStylesheet(config, onLoad = null) {
+    iconStylesheetUrls(config).forEach((href) => {
+      ensureBuilderStylesheet(href, "data-smartlink-builder-icon-stylesheet", onLoad);
+    });
+  }
+
+  function extractIconSuggestionFromSelector(selector) {
+    const text = String(selector || "").trim();
+
+    if (!text || !/::?before\b/i.test(text)) {
+      return "";
+    }
+
+    const classes = Array.from(text.matchAll(/\.([_a-zA-Z][-_a-zA-Z0-9]*)/g), (match) => String(match[1] || "").trim())
+      .filter((value) => value.startsWith("fa-"));
+
+    if (!classes.length) {
+      return "";
+    }
+
+    const iconToken = classes.find((token) => !ICON_STYLE_TOKENS.has(token));
+
+    if (!iconToken) {
+      return "";
+    }
+
+    const styleGroup = ICON_STYLE_GROUPS.find((group) => group.every((token) => classes.includes(token))) || ["fa-solid"];
+
+    return `${styleGroup.join(" ")} ${iconToken}`.trim();
+  }
+
+  function collectIconSuggestionsFromRules(rules, suggestions) {
+    Array.from(rules || []).forEach((rule) => {
+      if (!rule) {
+        return;
+      }
+
+      if (rule.selectorText) {
+        String(rule.selectorText)
+          .split(",")
+          .map((selector) => extractIconSuggestionFromSelector(selector))
+          .filter(Boolean)
+          .forEach((value) => suggestions.add(value));
+      }
+
+      if (rule.cssRules?.length) {
+        collectIconSuggestionsFromRules(rule.cssRules, suggestions);
+      } else if (rule.styleSheet?.cssRules?.length) {
+        collectIconSuggestionsFromRules(rule.styleSheet.cssRules, suggestions);
+      }
+    });
+  }
+
+  function resolveIconSuggestions(config) {
+    const urls = iconStylesheetUrls(config);
+    const cacheKey = urls.join("|") || "__default__";
+
+    if (ICON_SUGGESTION_CACHE.has(cacheKey)) {
+      return ICON_SUGGESTION_CACHE.get(cacheKey).slice();
+    }
+
+    const curated = Array.from(new Set(CURATED_ICON_SUGGESTIONS));
+    const suggestions = new Set(curated);
+    const targets = new Set(urls);
+
+    Array.from(document.styleSheets || []).forEach((sheet) => {
+      let href = "";
+
+      try {
+        href = absolutePreviewAssetUrl(sheet?.href || "", siteRootUrl());
+      } catch (error) {
+        href = "";
+      }
+
+      if (!href || !targets.has(href)) {
+        return;
+      }
+
+      try {
+        collectIconSuggestionsFromRules(sheet.cssRules || [], suggestions);
+      } catch (error) {
+      }
+    });
+
+    const ordered = [
+      ...curated,
+      ...Array.from(suggestions).filter((value) => !curated.includes(value)).sort((a, b) => a.localeCompare(b))
+    ];
+
+    ICON_SUGGESTION_CACHE.set(cacheKey, ordered);
+
+    return ordered.slice();
+  }
+
+  function imagePreviewUrl(value) {
+    const normalised = normaliseJoomlaMediaValue(value);
+
+    if (!normalised) {
+      return "";
+    }
+
+    return previewUrl(normalised);
+  }
+
+  function imageFieldPreview(state, fieldName) {
+    if (fieldName === "image_override") {
+      return imagePreviewUrl(state.image_override || imageSource({ ...state, image_override: "" }));
+    }
+
+    if (fieldName === "preview_image") {
+      return imagePreviewUrl(state.preview_image || state.selection_image || imageSource({ ...state, image_override: "" }));
+    }
+
+    if (fieldName === "video_poster") {
+      return imagePreviewUrl(state.video?.poster || state.selection_image || state.preview_image || "");
+    }
+
+    return "";
+  }
+
+  function filterIconSuggestions(config, query) {
+    const normalisedQuery = String(query || "").trim().toLowerCase();
+    const suggestions = resolveIconSuggestions(config);
+
+    if (!normalisedQuery) {
+      return suggestions.slice(0, 12);
+    }
+
+    const direct = [];
+    const contains = [];
+
+    suggestions.forEach((suggestion) => {
+      const lower = suggestion.toLowerCase();
+      if (lower.startsWith(normalisedQuery)) {
+        direct.push(suggestion);
+      } else if (lower.includes(normalisedQuery)) {
+        contains.push(suggestion);
+      }
+    });
+
+    return direct.concat(contains).slice(0, 12);
+  }
+
+  function inputId(config, suffix) {
+    const base = String(config?.instance_id || "smartlink").replace(/[^a-z0-9_-]+/gi, "-");
+    return `${base}-${suffix}`;
+  }
+
+  function filterIconSuggestions(query, suggestions, activeValue = "", limit = 12) {
+    const needle = String(query || "").trim().toLowerCase();
+    const active = String(activeValue || "").trim();
+    const values = Array.isArray(suggestions) ? suggestions.slice() : [];
+
+    if (!needle) {
+      return values
+        .filter((value) => String(value || "").trim() !== active)
+        .slice(0, limit);
+    }
+
+    const scored = values
+      .map((value) => {
+        const text = String(value || "").trim();
+        const lower = text.toLowerCase();
+        let score = 999;
+
+        if (!text || text === active) {
+          return null;
+        }
+
+        if (lower === needle) {
+          score = 0;
+        } else if (lower.startsWith(needle)) {
+          score = 1;
+        } else if (lower.includes(` ${needle}`)) {
+          score = 2;
+        } else if (lower.includes(needle)) {
+          score = 3;
+        } else {
+          return null;
+        }
+
+        return { text, score };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.score - b.score || a.text.localeCompare(b.text))
+      .slice(0, limit);
+
+    return scored.map((entry) => entry.text);
   }
 
   function supportsBareLayout(kind) {
@@ -4253,6 +4538,54 @@ a {
     return buildContentMarkup(config, placeholderPayload, placeholderText, { includeMeta: false });
   }
 
+  function renderImagePickerField(config, state, options = {}) {
+    const value = String(options.value || "").trim();
+    const preview = imageFieldPreview(state, String(options.fieldName || ""));
+    const hasExplicitValue = Boolean(value);
+    const pickerLabel = ui("button_choose_image");
+    const clearLabel = ui("button_clear");
+    const buttonClass = String(options.buttonClass || "").trim();
+    const clearClass = String(options.clearClass || "").trim();
+    const inputClass = String(options.inputClass || "").trim();
+    const placeholder = String(options.placeholder || "").trim();
+    const label = String(options.label || "").trim();
+
+    return `
+      <label class="smartlink-builder__field">
+        <span>${esc(label)}</span>
+        <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
+          <button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button ${esc(clearClass)}${preview ? " has-image" : " is-empty"}${hasExplicitValue ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}"${preview ? ` style="background-image:url('${esc(preview)}')"` : ""}></button>
+          <input class="form-control ${esc(inputClass)}" type="url" value="${esc(value)}"${placeholder ? ` placeholder="${esc(placeholder)}"` : ""}>
+          <button class="btn btn-outline-secondary smartlink-builder__input-picker ${esc(buttonClass)}" type="button" title="${esc(pickerLabel)}" aria-label="${esc(pickerLabel)}">
+            <span class="fa-regular fa-image" aria-hidden="true"></span>
+          </button>
+        </div>
+      </label>`;
+  }
+
+  function renderIconClassField(config, state) {
+    const value = String(state.icon_class || "");
+    const previewClass = iconClassName(state.icon_class, state.kind);
+    const hasExplicitValue = Boolean(value.trim());
+    const clearLabel = ui("button_clear");
+    const datalistId = inputId(config, "icon-suggestions");
+    const suggestions = resolveIconSuggestions(config);
+
+    return `
+      <div class="smartlink-builder__field smartlink-builder__icon-field">
+        <span>${esc(ui("field_icon_class"))}</span>
+        <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--with-prefix">
+          <button class="smartlink-builder__input-prefix smartlink-builder__input-prefix--icon smartlink-builder__input-prefix-button js-clear-icon-class${hasExplicitValue ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}">
+            <span class="smartlink-icon ${esc(previewClass)}"></span>
+          </button>
+          <input class="form-control js-icon-class" type="text" value="${esc(value)}" placeholder="${esc(defaultIconClass(state.kind))}" list="${esc(datalistId)}" autocomplete="off">
+        </div>
+        <datalist id="${esc(datalistId)}">
+          ${suggestions.map((suggestion) => `<option value="${esc(suggestion)}"></option>`).join("")}
+        </datalist>
+      </div>`;
+  }
+
   function renderBehavior(config, state) {
     const behaviorModes = modes(config, state.kind);
     const hasMultipleModes = behaviorModes.length > 1;
@@ -4339,7 +4672,7 @@ a {
       </section>`;
   }
 
-  function renderAdvanced(state) {
+  function renderAdvanced(config, state) {
     const showPopupScopeField = supportsBareLayout(state.kind) && (state.action === "preview_modal" || state.action === "toggle_view" || state.display_inside);
     const showTargetField = state.action === "link_open";
     const showRelField = state.action === "link_open";
@@ -4399,11 +4732,15 @@ a {
     const thumbnailFields = [];
 
     if (showImageOverrideField) {
-      thumbnailFields.push(`
-        <label class="smartlink-builder__field">
-          <span>${esc(ui("field_image_to_show"))}</span>
-          <input class="form-control js-image-override" type="url" value="${esc(state.image_override)}" placeholder="${esc(ui("placeholder_optional_override"))}">
-        </label>`);
+      thumbnailFields.push(renderImagePickerField(config, state, {
+        label: ui("field_image_to_show"),
+        fieldName: "image_override",
+        value: state.image_override,
+        placeholder: ui("placeholder_optional_override"),
+        inputClass: "js-image-override",
+        buttonClass: "js-image-override-picker",
+        clearClass: "js-clear-image-override"
+      }));
     }
 
     if (showAltField) {
@@ -4477,15 +4814,17 @@ a {
             </select>
           </label>
           ${showPreviewImageField ? `
-            <label class="smartlink-builder__field">
-              <span>${esc(ui("field_popup_image_override"))}</span>
-              <input class="form-control js-preview-image" type="url" value="${esc(state.preview_image)}" placeholder="${esc(ui("placeholder_optional_popup_image"))}">
-            </label>` : ""}
+            ${renderImagePickerField(config, state, {
+              label: ui("field_popup_image_override"),
+              fieldName: "preview_image",
+              value: state.preview_image,
+              placeholder: ui("placeholder_optional_popup_image"),
+              inputClass: "js-preview-image",
+              buttonClass: "js-preview-image-picker",
+              clearClass: "js-clear-preview-image"
+            })}` : ""}
           ${state.show_icon ? `
-            <label class="smartlink-builder__field">
-              <span>${esc(ui("field_icon_class"))}</span>
-              <input class="form-control js-icon-class" type="text" value="${esc(state.icon_class)}" placeholder="${esc(defaultIconClass(state.kind))}">
-            </label>` : ""}
+            ${renderIconClassField(config, state)}` : ""}
           <label class="smartlink-builder__field"><span>${esc(ui("field_css_class"))}</span><input class="form-control js-css" type="text" value="${esc(state.css_class)}"></label>
           <label class="smartlink-builder__field"><span>${esc(ui("field_title"))}</span><input class="form-control js-title" type="text" value="${esc(state.title)}"></label>
           ${showTargetField ? `<label class="smartlink-builder__field"><span>${esc(ui("field_open_in"))}</span><input class="form-control js-target" type="text" value="${esc(state.target)}" placeholder="_blank"></label>` : ""}
@@ -4566,7 +4905,13 @@ a {
               <label><input class="js-video-muted" type="checkbox"${state.video.muted ? " checked" : ""}> ${esc(ui("video_start_muted"))}</label>
               <label class="smartlink-builder__field">
                 <span>${esc(ui("field_poster_image"))}</span>
-                <input class="form-control js-video-poster" type="url" value="${esc(state.video.poster)}">
+                <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
+                  <button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button js-clear-video-poster${imageFieldPreview(state, "video_poster") ? " has-image" : " is-empty"}${String(state.video.poster || "").trim() ? " has-clear" : ""}" type="button" title="${esc(ui("button_clear"))}" aria-label="${esc(ui("button_clear"))}"${imageFieldPreview(state, "video_poster") ? ` style="background-image:url('${esc(imageFieldPreview(state, "video_poster"))}')"` : ""}></button>
+                  <input class="form-control js-video-poster" type="url" value="${esc(state.video.poster)}">
+                  <button class="btn btn-outline-secondary smartlink-builder__input-picker js-video-poster-picker" type="button" title="${esc(ui("button_choose_image"))}" aria-label="${esc(ui("button_choose_image"))}">
+                    <span class="fa-regular fa-image" aria-hidden="true"></span>
+                  </button>
+                </div>
               </label>` : ""}
             ${state.kind === "gallery" ? `
               <label class="smartlink-builder__field"><span>${esc(ui("field_columns"))}</span><input class="form-control js-gallery-columns" type="number" min="1" value="${esc(state.gallery.columns)}"></label>
@@ -4587,7 +4932,7 @@ a {
 
   function renderBody(config, state) {
     return state._view === "advanced"
-      ? renderAdvanced(state)
+      ? renderAdvanced(config, state)
       : `<div class="smartlink-builder__two-up">${renderGeneral(state)}${renderBehavior(config, state)}</div>${renderContent(state)}`;
   }
 
@@ -5048,6 +5393,7 @@ a {
       previewContext.text_color = computed.color || "";
     }
     config.preview_context = previewContext;
+    config.instance_id = String(config.instance_id || root.dataset.inputId || root.id || `smartlink-${Math.random().toString(36).slice(2, 10)}`);
     root._smartlinkConfig = config;
     const state = makeState(config, parseJSON(input?.value, {}));
     const isFieldInput = Boolean(root.dataset.inputId);
@@ -5064,6 +5410,23 @@ a {
         input.value = !isFieldInput || hasPersistableValue(payload) ? JSON.stringify(payload) : "";
       }
     };
+
+    const refreshIconFieldUi = () => {
+      const inputField = root.querySelector(".js-icon-class");
+      const prefix = root.querySelector(".js-clear-icon-class .smartlink-icon");
+
+      if (!inputField || !prefix) {
+        return;
+      }
+
+      const value = String(inputField.value || "");
+      prefix.className = `smartlink-icon ${iconClassName(value, state.kind)}`;
+    };
+
+    ensureBuilderIconStylesheet(config, () => {
+      ICON_SUGGESTION_CACHE.delete(iconStylesheetUrls(config).join("|") || "__default__");
+      repaint();
+    });
 
     const cancelPendingRailSwitch = () => {
       if (pendingRailSwitchTimer) {
@@ -5123,6 +5486,16 @@ a {
       repaint();
     });
 
+    root.addEventListener("input", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.classList.contains("js-icon-class")) {
+        refreshIconFieldUi();
+      }
+    });
+
     root.addEventListener("click", (event) => {
       const button = event.target.closest("button");
       if (!button) {
@@ -5131,6 +5504,34 @@ a {
 
       if (!button.classList.contains("js-rail-toggle") && pendingRailSwitchTimer) {
         cancelPendingRailSwitch();
+      }
+
+      if (button.classList.contains("js-clear-icon-class")) {
+        state.icon_class = "";
+        markCanonicalState(state, true);
+        repaint();
+        return;
+      }
+
+      if (button.classList.contains("js-clear-image-override")) {
+        state.image_override = "";
+        markCanonicalState(state, true);
+        repaint();
+        return;
+      }
+
+      if (button.classList.contains("js-clear-preview-image")) {
+        state.preview_image = "";
+        markCanonicalState(state, true);
+        repaint();
+        return;
+      }
+
+      if (button.classList.contains("js-clear-video-poster")) {
+        state.video.poster = "";
+        markCanonicalState(state, true);
+        repaint();
+        return;
       }
 
       if (button.classList.contains("js-rail-toggle")) {
@@ -5221,6 +5622,45 @@ a {
         });
         markCanonicalState(state, true);
         repaint();
+        return;
+      }
+
+      if (
+        (button.classList.contains("js-image-override-picker")
+          || button.classList.contains("js-preview-image-picker")
+          || button.classList.contains("js-video-poster-picker"))
+        && window.SuperSoftSmartLinkPickers
+      ) {
+        sync(root, state);
+        const currentValue = button.classList.contains("js-image-override-picker")
+          ? state.image_override
+          : button.classList.contains("js-preview-image-picker")
+            ? state.preview_image
+            : state.video.poster;
+
+        window.SuperSoftSmartLinkPickers.open("image", {
+          currentValue,
+          ui_strings: config.ui_strings || {}
+        }).then((selection) => {
+          if (selection === null) {
+            return;
+          }
+
+          const nextValue = selection && typeof selection === "object" && !Array.isArray(selection)
+            ? String(selection.value || "")
+            : String(selection || "");
+
+          if (button.classList.contains("js-image-override-picker")) {
+            state.image_override = nextValue;
+          } else if (button.classList.contains("js-preview-image-picker")) {
+            state.preview_image = nextValue;
+          } else {
+            state.video.poster = nextValue;
+          }
+
+          markCanonicalState(state, true);
+          repaint();
+        });
         return;
       }
 
