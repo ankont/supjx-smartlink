@@ -37,7 +37,11 @@ final class Renderer
         $kind = (string) ($payload['kind'] ?? '');
         $resolved = $this->registry->get($kind)->resolve($payload);
 
-        if (!empty($payload['display_inside']) || ($payload['action'] ?? '') === 'toggle_view') {
+        if (
+            !empty($payload['display_inside'])
+            || ($payload['action'] ?? '') === 'toggle_view'
+            || ($kind === 'gallery' && ($payload['action'] ?? '') === 'preview_modal')
+        ) {
             return $this->buildInlineViewer($payload, $resolved);
         }
 

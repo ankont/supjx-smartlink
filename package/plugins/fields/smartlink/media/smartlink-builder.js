@@ -203,6 +203,11 @@
     field_page_display: "Page display",
     field_view_on_page_position: "View on Page position",
     field_poster_image: "Poster image",
+    field_type: "Type",
+    field_trigger: "Trigger",
+    field_count: "Count",
+    field_items: "Items",
+    field_rows: "Rows",
     field_columns: "Columns",
     field_gap: "Gap",
     field_how_items_fit: "How the items fit",
@@ -269,12 +274,14 @@
     gallery_fallback_item: "Item",
     gallery_add_item: "Add item",
     gallery_add_from_media_library: "Add from Media Library",
+    gallery_manage_items: "Manage items",
     gallery_remove: "Remove",
     gallery_fit_fill_space: "Fill the space",
     gallery_fit_show_whole: "Show the whole item",
     gallery_fit_stretch: "Stretch to fit",
     gallery_fit_stretch_width: "Stretch to full width",
     gallery_fit_stretch_height: "Stretch to full height",
+    toggle_grid: "Grid",
     generic_item: "Item"
   };
   let ACTIVE_UI_STRINGS = { ...DEFAULT_UI_STRINGS };
@@ -374,7 +381,7 @@
     media_file: { l: "kind_media_file", g: "media", p: true, m: true, s: [["local", "source_media_library"], ["external", "source_web_address"]], d: [["no_action", "action_no_action"], ["link_open", "action_open_file"], ["link_download", "action_download_file"], ["preview_modal", "action_open_in_popup"], ["toggle_view", "action_toggle_view"]] },
     image: { l: "kind_image", g: "media", p: true, m: true, s: [["local", "source_media_library"], ["external", "source_web_address"]], d: [["no_action", "action_no_action"], ["link_open", "action_open_image"], ["preview_modal", "action_open_in_popup"], ["toggle_view", "action_toggle_view"]] },
     video: { l: "kind_video", g: "media", p: true, m: true, s: [["local", "source_media_library"], ["provider", "source_youtube_vimeo"], ["external", "source_direct_web_address"]], d: [["no_action", "action_no_action"], ["link_open", "action_open_video"], ["preview_modal", "action_open_in_popup"], ["toggle_view", "action_toggle_view"]] },
-    gallery: { l: "kind_gallery", g: "media", p: true, m: true, r: true, x: true, s: [["local", "source_media_library"], ["external", "source_web_address"], ["provider", "source_youtube_vimeo"]], d: [["no_action", "action_no_action"], ["link_open", "action_open_items"], ["preview_modal", "action_open_items_in_popup"], ["toggle_view", "action_toggle_view"]] },
+    gallery: { l: "kind_gallery", g: "media", p: true, m: true, r: true, x: true, d: [["no_action", "action_no_action"], ["preview_modal", "action_open_in_popup"], ["toggle_view", "action_toggle_view"]] },
     relative_url: { l: "kind_relative_url", g: "advanced", m: true, r: true, d: [["no_action", "action_no_action"], ["link_open", "action_open_link"], ["preview_modal", "action_open_in_popup"], ["toggle_view", "action_toggle_view"]] },
     user_profile: { l: "kind_user_profile", g: "advanced", m: true, r: true, d: [["no_action", "action_no_action"], ["link_open", "action_open_link"], ["toggle_view", "action_toggle_view"]] },
     advanced_route: { l: "kind_joomla_path", g: "advanced", m: true, r: true, d: [["no_action", "action_no_action"], ["link_open", "action_open_link"], ["toggle_view", "action_toggle_view"]] }
@@ -1114,9 +1121,9 @@ a {
         return {
           ...base,
           icon: { mode: "hidden", default: false },
-          image: { mode: "fixed", default: true },
-          text: { mode: "hidden", default: false },
-          displayInside: { mode: "fixed", default: true },
+          image: { mode: "available", default: true },
+          text: { mode: "available", default: false },
+          displayInside: { mode: "available", default: true },
           imageOverride: false
         };
       default:
@@ -1205,7 +1212,7 @@ a {
       case "icon":
         return Boolean(state.show_icon);
       case "text":
-        return Boolean(state.show_text) && state.kind !== "gallery";
+        return Boolean(state.show_text);
       case "thumbnail":
         return Boolean(state.show_image);
       case "view":
@@ -1335,6 +1342,34 @@ a {
 
   function iconClassName(value, kind = "") {
     return String(value || "").trim() || defaultIconClass(kind);
+  }
+
+  function normaliseGalleryItem(item = {}) {
+    const src = String(item.src || "").trim();
+    let sourceType = String(item.source_type || "").trim();
+    let type = String(item.type || "").trim() === "video" ? "video" : "image";
+
+    if (!sourceType) {
+      if (type === "video" && isProviderUrl(src)) {
+        sourceType = "provider";
+      } else if (/^https?:\/\//i.test(src)) {
+        sourceType = "external";
+      } else {
+        sourceType = "local";
+      }
+    }
+
+    if (sourceType === "provider") {
+      type = "video";
+    }
+
+    return {
+      type,
+      source_type: sourceType || "local",
+      src,
+      label: String(item.label || ""),
+      poster: String(item.poster || "")
+    };
   }
 
   function iconStylesheetUrls(config) {
@@ -1781,8 +1816,12 @@ a {
 
     if (state.kind === "gallery") {
       state.show_icon = false;
-      state.show_image = true;
-      state.show_text = false;
+      if ((state.gallery?.trigger_mode || "local") === "text") {
+        state.show_text = true;
+        state.show_image = false;
+      } else if (!state.show_image && !state.show_text) {
+        state.show_image = true;
+      }
     }
 
     if (state.action === "preview_modal") {
@@ -2138,6 +2177,9 @@ a {
       },
       gallery: {
         layout: "grid",
+        trigger_mode: seed.gallery?.trigger_mode || (seed.show_text && !seed.show_image ? "text" : "local"),
+        rows: Math.max(1, Number(seed.gallery?.rows || 1)),
+        grid_enabled: Boolean(seed.gallery?.grid_enabled),
         columns: Number(seed.gallery?.columns || 3),
         gap: Number(seed.gallery?.gap || 16),
         link_behavior: seed.gallery?.link_behavior || "open",
@@ -2150,6 +2192,10 @@ a {
       _common_preferences: {},
       _view: "main"
     };
+
+    if (kind === "gallery") {
+      state.value = (Array.isArray(state.value) ? state.value : []).map((item) => normaliseGalleryItem(item));
+    }
 
     normaliseImplicitFieldValues(normaliseContentState(state));
     state._common_preferences = captureCommonPreferences(state);
@@ -3339,13 +3385,38 @@ a {
     }
 
     if (state.kind === "gallery") {
+      const triggerSrcField = root.querySelector(".js-gallery-trigger-src");
+      const triggerTextField = root.querySelector(".js-gallery-trigger-text");
+      const gridField = root.querySelector(".js-gallery-grid");
+      const rowsField = root.querySelector(".js-gallery-rows");
+      state.value = (Array.isArray(state.value) ? state.value : [])
+        .map((item) => normaliseGalleryItem(item))
+        .filter((item) => item.src);
+
+      if (triggerSrcField) {
+        state.preview_image = triggerSrcField.value || "";
+      }
+      if (triggerTextField) {
+        state.label = triggerTextField.value || "";
+      }
+
       state.gallery = {
         layout: "grid",
+        trigger_mode: String(root.querySelector(".js-gallery-trigger-mode.is-active")?.dataset.mode || state.gallery.trigger_mode || "local"),
+        rows: Number(rowsField?.value || state.gallery.rows || 1),
+        grid_enabled: Boolean(gridField?.checked),
         columns: Number(root.querySelector(".js-gallery-columns")?.value || 3),
         gap: Number(root.querySelector(".js-gallery-gap")?.value || 16),
         link_behavior: root.querySelector(".js-gallery-link")?.value || "open",
         image_size_mode: root.querySelector(".js-gallery-size")?.value || "cover"
       };
+      if (state.show_text && !state.show_image) {
+        state.gallery.trigger_mode = "text";
+      } else if (state.gallery.trigger_mode === "text") {
+        state.gallery.trigger_mode = String(state.preview_image || "").trim() ? "external" : "local";
+      }
+      state.show_text = state.gallery.trigger_mode === "text";
+      state.show_image = state.gallery.trigger_mode !== "text";
       const galleryActions = modes(root._smartlinkConfig || {}, state.kind);
       if (!galleryActions.some((mode) => mode[0] === state.action)) {
         state.action = galleryActions[0][0];
@@ -4314,6 +4385,181 @@ a {
     return imageAlt(payload, primaryText(payload));
   }
 
+  function hasSourceValue(state) {
+    if (state.kind === "gallery" || state.kind === "com_tags_tag") {
+      return Array.isArray(state.value) && state.value.length > 0;
+    }
+
+    return Boolean(
+      String(Array.isArray(state.value) ? "" : state.value || "").trim()
+      || String(state.selection_label || "").trim()
+      || (Array.isArray(state.selection_items) && state.selection_items.length)
+    );
+  }
+
+  function sourceModeChoices(state) {
+    if (state.kind === "video") {
+      return [
+        ["local", "fa-regular fa-folder-open", ui("source_media_library")],
+        ["provider", "fa-brands fa-youtube", ui("source_youtube_vimeo")],
+        ["external", "fa-solid fa-globe", ui("source_direct_web_address")]
+      ];
+    }
+
+    if (["media_file", "image"].includes(state.kind)) {
+      return [
+        ["local", "fa-regular fa-folder-open", ui("source_media_library")],
+        ["external", "fa-solid fa-globe", ui("source_web_address")]
+      ];
+    }
+
+    return [];
+  }
+
+  function sourcePreviewUrl(state) {
+    if (state.kind === "image") {
+      return imagePreviewUrl(normaliseJoomlaMediaValue(state.value || state.selection_image || ""));
+    }
+
+    if (state.kind === "gallery") {
+      const first = Array.isArray(state.value) ? state.value[0] : null;
+      return imagePreviewUrl(first?.poster || first?.src || "");
+    }
+
+    return imagePreviewUrl(state.selection_image || state.preview_image || "");
+  }
+
+  function renderSourcePrefix(state) {
+    const preview = sourcePreviewUrl(state);
+    const hasValue = hasSourceValue(state);
+    const clearLabel = ui("button_clear");
+
+    if (preview) {
+      return `<button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button js-clear has-image${hasValue ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}" style="background-image:url('${esc(preview)}')"></button>`;
+    }
+
+    return `<button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button js-clear is-empty${hasValue ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}"></button>`;
+  }
+
+  function renderSourceModeButtons(state, includePickerButton = false) {
+    const buttons = [];
+
+    if (includePickerButton) {
+      buttons.push(
+        `<button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode js-picker" title="${esc(kindTypeLabel(state.kind))}" aria-label="${esc(kindTypeLabel(state.kind))}">
+          <span class="${esc(defaultIconClass(state.kind))}" aria-hidden="true"></span>
+        </button>`
+      );
+    }
+
+    sourceModeChoices(state).forEach(([value, iconClass, label]) => {
+      buttons.push(
+        `<button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${value === state.source_type ? " is-active" : ""} js-source-mode" data-source="${esc(value)}" title="${esc(label)}" aria-label="${esc(label)}">
+          <span class="${esc(iconClass)}" aria-hidden="true"></span>
+        </button>`
+      );
+    });
+
+    return buttons.length
+      ? `<div class="smartlink-builder__source-buttons">${buttons.join("")}</div>`
+      : "";
+  }
+
+  function renderPickerSourceControl(state) {
+    const usesInlineModes = sourceModeChoices(state).length > 0;
+    const isLocalPicker = !usesInlineModes || state.source_type === "local";
+    const hiddenValue = Array.isArray(state.value) ? state.value.join(",") : String(state.value || "");
+    const title = ["com_content_article", "com_content_category", "menu_item", "com_contact_contact"].includes(state.kind)
+      ? ui("summary_selected_item")
+      : (state.kind === "com_tags_tag" ? ui("summary_selected_tags") : (usesInlineModes ? valueLabel(state) : ui("summary_selected_file")));
+
+    const valueControl = isLocalPicker
+      ? `<input class="form-control smartlink-builder__source-value" type="text" value="${esc(summaryText(state))}" readonly>`
+      : `<input class="form-control js-value smartlink-builder__source-value" type="${esc(inputType(state))}" value="${esc(Array.isArray(state.value) ? state.value.join(",") : state.value || "")}" placeholder="${esc(valuePlaceholder(state))}">`;
+
+    return `
+      <label class="smartlink-builder__field smartlink-builder__field--full">
+        <span>${esc(title)}</span>
+        <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
+          ${renderSourcePrefix(state)}
+          ${valueControl}
+          ${renderSourceModeButtons(state, !usesInlineModes)}
+        </div>
+        <input class="js-hidden-value" type="hidden" value="${esc(hiddenValue)}">
+      </label>`;
+  }
+
+  function galleryTriggerPreview(state) {
+    return imagePreviewUrl(String(state.preview_image || "").trim());
+  }
+
+  function renderGalleryTriggerControl(state) {
+    const mode = String(state.gallery?.trigger_mode || "local").trim() || "local";
+    const clearLabel = ui("button_clear");
+    const preview = galleryTriggerPreview(state);
+    const valueControl = mode === "text"
+      ? `<input class="form-control js-gallery-trigger-text smartlink-builder__source-value" type="text" value="${esc(state.label || "")}" placeholder="${esc(ui("field_text_to_display"))}">`
+      : mode === "local"
+        ? `<input class="form-control smartlink-builder__source-value" type="text" value="${esc(String(state.preview_image || "").trim() ? basename(state.preview_image) : ui("summary_nothing_selected"))}" readonly>`
+        : `<input class="form-control js-gallery-trigger-src smartlink-builder__source-value" type="url" value="${esc(state.preview_image || "")}" placeholder="https://example.com/image.jpg">`;
+
+    return `
+      <label class="smartlink-builder__field smartlink-builder__field--full">
+        <span>${esc(ui("field_trigger"))}</span>
+        <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
+          <button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button js-clear-gallery-trigger${preview ? " has-image" : " is-empty"}${String(state.preview_image || "").trim() ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}"${preview ? ` style="background-image:url('${esc(preview)}')"` : ""}></button>
+          ${valueControl}
+          <div class="smartlink-builder__source-buttons">
+            <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "local" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="local" title="${esc(ui("source_media_library"))}" aria-label="${esc(ui("source_media_library"))}">
+              <span class="fa-regular fa-folder-open" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "external" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="external" title="${esc(ui("source_web_address"))}" aria-label="${esc(ui("source_web_address"))}">
+              <span class="fa-solid fa-globe" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "text" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="text" title="${esc(ui("toggle_text"))}" aria-label="${esc(ui("toggle_text"))}">
+              <span class="fa-solid fa-font" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+      </label>`;
+  }
+
+  function galleryItemPreview(item) {
+    const normalised = normaliseGalleryItem(item);
+    return imagePreviewUrl(normalised.type === "video" ? (normalised.poster || "") : normalised.src);
+  }
+
+  function renderGallerySummaryItem(item) {
+    const current = normaliseGalleryItem(item);
+    const preview = galleryItemPreview(current);
+    const title = current.label || basename(current.src || "") || ui("generic_item");
+    const detail = current.src || (current.source_type === "provider" ? ui("source_youtube_vimeo") : ui("summary_nothing_selected"));
+    const typeIcon = current.type === "video" ? "fa-solid fa-video" : "fa-regular fa-image";
+
+    return `
+      <article class="smartlink-builder__gallery-summary-item">
+        <span class="smartlink-builder__gallery-summary-preview${preview ? " has-image" : " is-empty"}"${preview ? ` style="background-image:url('${esc(preview)}')"` : ""}></span>
+        <span class="smartlink-builder__gallery-summary-meta">
+          <span class="smartlink-builder__gallery-name">${esc(title)}</span>
+          <span class="smartlink-builder__gallery-path">${esc(detail)}</span>
+        </span>
+        <span class="smartlink-builder__gallery-type ${esc(typeIcon)}" aria-hidden="true"></span>
+      </article>`;
+  }
+
+  function renderGallerySummary(state) {
+    const items = (Array.isArray(state.value) ? state.value : []).map((item) => normaliseGalleryItem(item)).filter((item) => item.src);
+
+    if (!items.length) {
+      return `<div class="smartlink-builder__empty">${esc(ui("picker_no_items_selected"))}</div>`;
+    }
+
+    return `
+      <div class="smartlink-builder__gallery-summary-list">
+        ${items.map((item) => renderGallerySummaryItem(item)).join("")}
+      </div>`;
+  }
+
   function groups(config, currentKind) {
     const allowed = list(config.allowed_kinds, GROUPS.flatMap((group) => group[2]));
     return GROUPS
@@ -4329,7 +4575,7 @@ a {
     return groupKey === activeGroupKey(state);
   }
 
-  function renderGeneral(state) {
+  function renderGeneral(config, state) {
     const currentMeta = meta(state.kind);
     const sources = currentMeta.s || [];
     const usesPicker = currentMeta.p && (!sources.length || state.source_type === "local");
@@ -4337,55 +4583,42 @@ a {
     let pickerPanel = "";
 
     if (state.kind === "gallery") {
-      const items = Array.isArray(state.value) ? state.value : [];
       pickerPanel = `
-        <div class="smartlink-builder__gallery-list">
-          ${items.length ? items.map((item, index) => `
-            <div class="smartlink-builder__gallery-card" data-index="${index}">
-              <div class="smartlink-builder__gallery-preview">
-                ${(item.type || "image") === "video"
-                  ? (item.poster
-                    ? `<img src="${esc(item.poster)}" alt="${esc(item.label || ui("gallery_fallback_video"))}" loading="lazy">`
-                    : `<span class="smartlink-builder__gallery-fallback">${esc(item.label || ui("gallery_fallback_video"))}</span>`)
-                  : `<img src="${esc(item.src || "")}" alt="${esc(item.label || "")}" loading="lazy">`}
-              </div>
-              <div class="smartlink-builder__gallery-meta">
-                <div class="smartlink-builder__gallery-name">${esc(item.label || basename(item.src || "") || ui("generic_item"))}</div>
-                <div class="smartlink-builder__gallery-path">${esc(item.src || "")}</div>
-              </div>
-              <button type="button" class="btn btn-sm btn-outline-danger js-gallery-remove" data-index="${index}">${esc(ui("gallery_remove"))}</button>
-            </div>`).join("") : `<div class="smartlink-builder__empty">${esc(ui("summary_no_items_selected"))}</div>`}
-        </div>
-        ${state.source_type !== "local" ? `
-          <div class="smartlink-builder__row">
-            <label class="smartlink-builder__field">
-              <span>${esc(state.source_type === "provider" ? ui("value_label_youtube_vimeo_link") : ui("value_label_web_address"))}</span>
-              <input class="form-control js-gallery-manual-src" type="url" placeholder="${esc(state.source_type === "provider" ? ui("value_placeholder_youtube") : "https://example.com/image.jpg")}">
+        ${renderGalleryTriggerControl(state)}
+        <div class="smartlink-builder__gallery-layout">
+          <div class="smartlink-builder__gallery-main">
+            <label class="smartlink-builder__field smartlink-builder__field--full">
+              <span>${esc(ui("field_items"))}</span>
+              ${renderGallerySummary(state)}
             </label>
-            <label class="smartlink-builder__field">
-              <span>${esc(ui("field_item_title"))}</span>
-              <input class="form-control js-gallery-manual-label" type="text" placeholder="${esc(ui("placeholder_optional"))}">
-            </label>
-            <button type="button" class="btn btn-outline-secondary js-gallery-add-manual">${esc(ui("gallery_add_item"))}</button>
-          </div>` : ""}
-        <div class="smartlink-builder__actions">
-          ${usesPicker ? `<button type="button" class="btn btn-outline-secondary js-picker">${esc(ui("gallery_add_from_media_library"))}</button>` : ""}
-          ${items.length ? `<button type="button" class="btn btn-outline-secondary js-clear">${esc(ui("button_clear_all"))}</button>` : ""}
-        </div>`;
-    } else if (usesPicker) {
-      pickerPanel = `
-        <div class="smartlink-builder__picker-row">
-          <div class="smartlink-builder__summary smartlink-builder__summary--compact">
-            <div class="smartlink-builder__summary-caption">${esc(["com_content_article", "com_content_category", "menu_item", "com_contact_contact"].includes(state.kind) ? ui("summary_selected_item") : (state.kind === "com_tags_tag" ? ui("summary_selected_tags") : ui("summary_selected_file")))}</div>
-            <div class="smartlink-builder__summary-value">${esc(summaryText(state))}</div>
+            <div class="smartlink-builder__actions smartlink-builder__actions--inline">
+              <button type="button" class="btn btn-outline-secondary js-picker">${esc(ui("gallery_manage_items"))}</button>
+            </div>
           </div>
-          <div class="smartlink-builder__actions smartlink-builder__actions--inline">
-            <button type="button" class="btn btn-outline-secondary js-picker">${esc(ui("button_choose"))}</button>
-            ${(Array.isArray(state.value) ? state.value.length : state.value) ? `<button type="button" class="btn btn-outline-secondary js-clear">${esc(ui("button_clear"))}</button>` : ""}
+          <div class="smartlink-builder__gallery-side">
+            <div class="smartlink-builder__linked-parts">
+              <label class="smartlink-builder__switch-row smartlink-builder__switch-row--linked-main${state.gallery.grid_enabled ? " is-active" : ""}">
+                <span class="smartlink-builder__switch-control">
+                  <input class="js-gallery-grid" type="checkbox"${state.gallery.grid_enabled ? " checked" : ""}>
+                  <span class="smartlink-builder__switch-ui" aria-hidden="true"></span>
+                </span>
+                <span class="smartlink-builder__switch-row-label">${esc(ui("toggle_grid"))}</span>
+              </label>
+              ${state.gallery.grid_enabled ? `
+                <label class="smartlink-builder__switch-row smartlink-builder__switch-row--part smartlink-builder__switch-row--icon">
+                  <span class="smartlink-builder__switch-row-label">${esc(ui("field_columns"))}</span>
+                  <input class="form-control js-gallery-columns" type="number" min="1" value="${esc(state.gallery.columns)}">
+                </label>
+                <label class="smartlink-builder__switch-row smartlink-builder__switch-row--part smartlink-builder__switch-row--icon">
+                  <span class="smartlink-builder__switch-row-label">${esc(ui("field_rows"))}</span>
+                  <input class="form-control js-gallery-rows" type="number" min="1" value="${esc(state.gallery.rows || 1)}">
+                </label>` : ""}
+            </div>
           </div>
         </div>
-        <input class="js-hidden-value" type="hidden" value="${esc(Array.isArray(state.value) ? state.value.join(",") : String(state.value || ""))}">
-      `;
+        `;
+    } else if (currentMeta.p) {
+      pickerPanel = renderPickerSourceControl(state);
     } else {
       const anchorSuggestions = state.kind === "anchor" ? (Array.isArray(state._anchorSuggestions) ? state._anchorSuggestions : []) : [];
       const anchorListId = `smartlink-anchor-list-${Math.random().toString(36).slice(2, 10)}`;
@@ -4406,16 +4639,61 @@ a {
     return `
       <section class="smartlink-builder__section">
         <h4 class="smartlink-builder__section-title">${esc(ui("section_source"))}</h4>
-        ${sources.length ? `
-          <label class="smartlink-builder__field">
-            <span>${esc(state.kind === "gallery" ? ui("field_where_items_from") : uiFormat("field_where_kind_from", { kind: meta(state.kind).l.toLowerCase() }))}</span>
-            <select class="form-select js-source">
-              ${sources.map((source) => `<option value="${esc(source[0])}"${source[0] === state.source_type ? " selected" : ""}>${esc(source[1])}</option>`).join("")}
-            </select>
-          </label>` : ""}
         ${pickerPanel}
         ${warning ? `<div class="smartlink-builder__warning">${esc(warning)}</div>` : ""}
       </section>`;
+  }
+
+  function openSelectionPicker(root, state, config, repaint) {
+    if (!window.SuperSoftSmartLinkPickers) {
+      return;
+    }
+
+    sync(root, state);
+
+    window.SuperSoftSmartLinkPickers.open(state.kind, {
+      currentValue: state.value,
+      currentItems: state.kind === "com_tags_tag" ? state.selection_items : [],
+      ui_strings: config.ui_strings || {}
+    }).then((selection) => {
+      if (selection === null) {
+        return;
+      }
+
+      if (state.kind === "gallery") {
+        state.value = (Array.isArray(selection?.value) ? selection.value : [])
+          .map((item) => normaliseGalleryItem(item))
+          .filter((item) => item.src);
+        state.selection_label = state.value.length
+          ? uiFormat(state.value.length === 1 ? "summary_n_items_selected_one" : "summary_n_items_selected_other", { count: state.value.length })
+          : "";
+        markCanonicalState(state, true);
+        repaint();
+        return;
+      }
+
+      if (selection && typeof selection === "object" && !Array.isArray(selection) && Object.prototype.hasOwnProperty.call(selection, "value")) {
+        state.value = Array.isArray(selection.value) ? selection.value : String(selection.value || "");
+        state.selection_label = String(selection.label || "");
+        state.selection_items = Array.isArray(selection.items)
+          ? selection.items.filter((item) => item && item.id).map((item) => ({ id: String(item.id || ""), label: String(item.label || "") }))
+          : [];
+        state.selection_summary = String(selection.summary || "");
+        state.selection_href = String(selection.href || "");
+        state.selection_image = String(selection.image || "");
+        state.selection_image_alt = String(selection.image_alt || selection.label || "");
+        if (!state.label && selection.label && state.action === "link_open" && !["image", "video", "com_content_article", "com_content_category", "com_tags_tag"].includes(state.kind)) {
+          state.label = String(selection.label);
+        }
+        markCanonicalState(state, true);
+        hydrateSelectionState(state, repaint);
+      } else {
+        state.value = Array.isArray(selection) ? selection : String(selection || "");
+        markCanonicalState(state, true);
+      }
+
+      repaint();
+    });
   }
 
   function hasPreviewValue(payload) {
@@ -4626,7 +4904,8 @@ a {
     const showDisplayInsideToggle = isToggleVisible(state.kind, "displayInside");
     const displayInsideActive = previewModalImpliesView || state.display_inside;
     const displayInsideDisabled = state.action === "preview_modal" || isToggleDisabled(state.kind, "displayInside");
-    const showTextField = isToggleVisible(state.kind, "text") && state.show_text && state.kind !== "gallery";
+    const showTextField = isToggleVisible(state.kind, "text") && state.show_text;
+    const galleryTextManagedInSource = state.kind === "gallery" && state.gallery?.trigger_mode === "text";
     const noVisibleContent = !displayInsideActive && !state.show_icon && !state.show_image && !state.show_text;
 
     return `
@@ -4666,7 +4945,7 @@ a {
         ${showTextField ? `
           <label class="smartlink-builder__field">
             <span>${esc(ui("field_text_to_display"))}</span>
-            <input class="form-control js-label" type="text" value="${esc(state.label)}" placeholder="${esc(labelHint(state))}">
+            <input class="form-control js-label" type="text" value="${esc(state.label)}" placeholder="${esc(labelHint(state))}"${galleryTextManagedInSource ? " disabled" : ""}>
           </label>` : ""}
         ${noVisibleContent ? `<div class="smartlink-builder__warning">${esc(ui("warning_enable_content_part"))}</div>` : ""}
       </section>`;
@@ -4933,7 +5212,7 @@ a {
   function renderBody(config, state) {
     return state._view === "advanced"
       ? renderAdvanced(config, state)
-      : `<div class="smartlink-builder__two-up">${renderGeneral(state)}${renderBehavior(config, state)}</div>${renderContent(state)}`;
+      : `<div class="smartlink-builder__two-up">${renderGeneral(config, state)}${renderBehavior(config, state)}</div>${renderContent(state)}`;
   }
 
   function renderPreview() {
@@ -5368,9 +5647,21 @@ a {
     if (!item?.src || items.length >= max || items.some((current) => current.src === item.src && (current.type || "image") === (item.type || "image"))) {
       return;
     }
-    items.push({ type: item.type || "image", src: item.src, label: item.label || "", poster: item.poster || "" });
+    items.push(normaliseGalleryItem(item));
     state.value = items;
     state.selection_label = `${items.length} item${items.length === 1 ? "" : "s"} selected`;
+  }
+
+  function ensureGalleryItemCount(state, config, requestedCount) {
+    const max = Number(config.max_gallery_items || 12);
+    const count = Math.max(1, Math.min(max, Number(requestedCount || 1)));
+    const items = (Array.isArray(state.value) ? state.value : []).map((item) => normaliseGalleryItem(item));
+
+    while (items.length < count) {
+      items.push(normaliseGalleryItem({ type: "image", source_type: "local", src: "", label: "", poster: "" }));
+    }
+
+    state.value = items.slice(0, count);
   }
 
   function mount(root, options = {}) {
@@ -5478,7 +5769,14 @@ a {
         repaint();
         return;
       }
-      if (target.classList.contains("js-gallery-manual-src") || target.classList.contains("js-gallery-manual-label")) {
+      if (
+        target.classList.contains("js-gallery-manual-src")
+        || target.classList.contains("js-gallery-manual-label")
+        || target.classList.contains("js-gallery-manual-type")
+        || target.classList.contains("js-gallery-trigger-src")
+        || target.classList.contains("js-gallery-trigger-text")
+        || target.classList.contains("js-gallery-rows")
+      ) {
         return;
       }
       sync(root, state);
@@ -5489,6 +5787,22 @@ a {
     root.addEventListener("input", (event) => {
       const target = event.target;
       if (!(target instanceof Element)) {
+        return;
+      }
+      if (
+        target.classList.contains("js-gallery-rows")
+        || target.classList.contains("js-gallery-trigger-text")
+      ) {
+        sync(root, state);
+        markCanonicalState(state);
+        if (target.classList.contains("js-gallery-trigger-text")) {
+          const mirrorField = root.querySelector(".js-label");
+          if (mirrorField instanceof HTMLInputElement && mirrorField.disabled) {
+            mirrorField.value = target.value;
+          }
+        } else {
+          repaint();
+        }
         return;
       }
       if (target.classList.contains("js-icon-class")) {
@@ -5598,30 +5912,66 @@ a {
         return;
       }
 
-      if (button.classList.contains("js-gallery-remove")) {
-        const index = Number(button.dataset.index || -1);
-        const items = Array.isArray(state.value) ? state.value.slice() : [];
-        state.value = items.filter((_, itemIndex) => itemIndex !== index);
-        state.selection_label = "";
+      if (button.classList.contains("js-gallery-trigger-mode")) {
+        const nextMode = String(button.dataset.mode || "").trim() || "local";
+        state.gallery.trigger_mode = nextMode;
+        state.show_text = nextMode === "text";
+        state.show_image = nextMode !== "text";
+
+        if (nextMode === "local" && window.SuperSoftSmartLinkPickers) {
+          window.SuperSoftSmartLinkPickers.open("image", {
+            currentValue: state.preview_image,
+            ui_strings: config.ui_strings || {}
+          }).then((selection) => {
+            if (selection === null) {
+              return;
+            }
+
+            state.preview_image = selection && typeof selection === "object" && !Array.isArray(selection)
+              ? String(selection.value || "")
+              : String(selection || "");
+            markCanonicalState(state, true);
+            repaint();
+          });
+        } else {
+          markCanonicalState(state, true);
+          repaint();
+        }
+
+        return;
+      }
+
+      if (button.classList.contains("js-clear-gallery-trigger")) {
+        state.preview_image = "";
         markCanonicalState(state, true);
         repaint();
         return;
       }
 
-      if (button.classList.contains("js-gallery-add-manual")) {
-        const src = root.querySelector(".js-gallery-manual-src")?.value?.trim() || "";
-        const label = root.querySelector(".js-gallery-manual-label")?.value?.trim() || "";
-        if (!src) {
+      if (button.classList.contains("js-source-mode")) {
+        const nextSource = String(button.dataset.source || "").trim();
+
+        if (!nextSource) {
           return;
         }
-        addGalleryItem(state, config, {
-          type: state.source_type === "provider" || looksLikeVideo(src) ? "video" : "image",
-          src,
-          label,
-          poster: ""
-        });
-        markCanonicalState(state, true);
-        repaint();
+
+        if (nextSource !== state.source_type) {
+          state.source_type = nextSource;
+          state.value = state.kind === "gallery" ? [] : (state.kind === "com_tags_tag" ? [] : "");
+          state.selection_label = "";
+          state.selection_items = [];
+          state.selection_summary = "";
+          state.selection_href = "";
+          state.selection_image = "";
+          state.selection_image_alt = "";
+          markCanonicalState(state, true);
+          repaint();
+        }
+
+        if (nextSource === "local") {
+          openSelectionPicker(root, state, config, repaint);
+        }
+
         return;
       }
 
@@ -5665,42 +6015,7 @@ a {
       }
 
       if (button.classList.contains("js-picker") && window.SuperSoftSmartLinkPickers) {
-        sync(root, state);
-        window.SuperSoftSmartLinkPickers.open(state.kind, {
-          currentValue: state.value,
-          currentItems: state.kind === "com_tags_tag" ? state.selection_items : [],
-          ui_strings: config.ui_strings || {}
-        }).then((selection) => {
-          if (selection === null) {
-            return;
-          }
-          if (state.kind === "gallery") {
-            (Array.isArray(selection?.value) ? selection.value : []).forEach((item) => addGalleryItem(state, config, item));
-            markCanonicalState(state, true);
-            repaint();
-            return;
-          }
-          if (selection && typeof selection === "object" && !Array.isArray(selection) && Object.prototype.hasOwnProperty.call(selection, "value")) {
-            state.value = Array.isArray(selection.value) ? selection.value : String(selection.value || "");
-            state.selection_label = String(selection.label || "");
-            state.selection_items = Array.isArray(selection.items)
-              ? selection.items.filter((item) => item && item.id).map((item) => ({ id: String(item.id || ""), label: String(item.label || "") }))
-              : [];
-            state.selection_summary = String(selection.summary || "");
-            state.selection_href = String(selection.href || "");
-            state.selection_image = String(selection.image || "");
-            state.selection_image_alt = String(selection.image_alt || selection.label || "");
-            if (!state.label && selection.label && state.action === "link_open" && !["image", "video", "com_content_article", "com_content_category", "com_tags_tag"].includes(state.kind)) {
-              state.label = String(selection.label);
-            }
-            markCanonicalState(state, true);
-            hydrateSelectionState(state, repaint);
-          } else {
-            state.value = Array.isArray(selection) ? selection : String(selection || "");
-            markCanonicalState(state, true);
-          }
-          repaint();
-        });
+        openSelectionPicker(root, state, config, repaint);
       }
     });
 

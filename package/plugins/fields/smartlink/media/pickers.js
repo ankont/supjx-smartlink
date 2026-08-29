@@ -17,6 +17,12 @@
     picker_one_item_per_line: "One item per line: type|src|label|poster",
     picker_cancel: "Cancel",
     picker_apply: "Apply",
+    picker_add_external: "Add external",
+    picker_add_provider: "Add provider",
+    picker_manage_items_hint: "Manage the selected items below.",
+    picker_manual_item_source: "Item source",
+    picker_move_previous: "Move previous",
+    picker_move_next: "Move next",
     picker_no_items_selected: "No items selected yet.",
     picker_no_tags_selected: "No tags selected yet.",
     picker_remove: "Remove {label}",
@@ -231,6 +237,38 @@
           ${previewMarkup}
         </div>
         <div class="smartlink-picker-dialog__selection-name">${esc(label)}</div>
+      </article>`;
+  }
+
+  function renderGallerySelectionRow(strings, item, index, total) {
+    const label = item.label || basename(item.src || "") || ui(strings, "generic_item");
+    const previewUrl = item.type === "video" ? (item.poster || "") : item.src;
+    const previewMarkup = previewUrl
+      ? `<span class="smartlink-picker-dialog__selection-row-preview" style="background-image:url('${esc(siteAbsoluteUrl(previewUrl))}')"></span>`
+      : `<span class="smartlink-picker-dialog__selection-row-preview smartlink-picker-dialog__selection-row-preview--empty"></span>`;
+    const detail = item.src || ui(strings, "picker_manual_item_source");
+    const movePreviousTitle = ui(strings, "picker_move_previous");
+    const moveNextTitle = ui(strings, "picker_move_next");
+    const removeTitle = uiFormat(strings, "picker_remove", { label });
+
+    return `
+      <article class="smartlink-picker-dialog__selection-row" data-index="${index}">
+        ${previewMarkup}
+        <div class="smartlink-picker-dialog__selection-row-meta">
+          <div class="smartlink-picker-dialog__selection-name">${esc(label)}</div>
+          <div class="smartlink-picker-dialog__selection-row-path">${esc(detail)}</div>
+        </div>
+        <div class="smartlink-picker-dialog__selection-row-actions">
+          <button type="button" class="btn btn-outline-secondary smartlink-picker-dialog__selection-action js-smartlink-selection-action" data-index="${index}" data-action="previous" title="${esc(movePreviousTitle)}" aria-label="${esc(movePreviousTitle)}"${index <= 0 ? " disabled" : ""}>
+            <span class="fa-solid fa-arrow-up" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="btn btn-outline-secondary smartlink-picker-dialog__selection-action js-smartlink-selection-action" data-index="${index}" data-action="next" title="${esc(moveNextTitle)}" aria-label="${esc(moveNextTitle)}"${index >= total - 1 ? " disabled" : ""}>
+            <span class="fa-solid fa-arrow-down" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="btn btn-outline-danger smartlink-picker-dialog__selection-action js-smartlink-selection-action" data-index="${index}" data-action="remove" title="${esc(removeTitle)}" aria-label="${esc(removeTitle)}">
+            <span class="fa-solid fa-xmark" aria-hidden="true"></span>
+          </button>
+        </div>
       </article>`;
   }
 
@@ -501,6 +539,23 @@
           <div class="smartlink-picker-dialog__body${isMultiSelectPicker ? " smartlink-picker-dialog__body--gallery" : ""}">
             ${route ? `<iframe class="smartlink-picker-dialog__frame" src="${route}" loading="lazy"></iframe>` : ""}
             ${isMultiSelectPicker ? `
+              ${isGalleryMultiSelectPicker ? `
+                <section class="smartlink-picker-dialog__manual">
+                  <div class="smartlink-picker-dialog__selection-heading">${esc(ui(strings, "picker_manual_item_source"))}</div>
+                  <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
+                    <span class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button smartlink-builder__input-thumb is-empty"></span>
+                    <input class="form-control js-smartlink-manual-src smartlink-builder__source-value" type="url" placeholder="https://example.com/image.jpg">
+                    <div class="smartlink-builder__source-buttons">
+                      <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode js-smartlink-manual-add" data-mode="external" title="${esc(ui(strings, "picker_add_external"))}" aria-label="${esc(ui(strings, "picker_add_external"))}">
+                        <span class="fa-solid fa-globe" aria-hidden="true"></span>
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode js-smartlink-manual-add" data-mode="provider" title="${esc(ui(strings, "picker_add_provider"))}" aria-label="${esc(ui(strings, "picker_add_provider"))}">
+                        <span class="fa-solid fa-video" aria-hidden="true"></span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="smartlink-builder__hint">${esc(ui(strings, "picker_manage_items_hint"))}</div>
+                </section>` : ""}
               <section class="smartlink-picker-dialog__selection">
                 <div class="smartlink-picker-dialog__selection-heading">${esc(ui(strings, "picker_selected_items"))}</div>
                 <div class="smartlink-picker-dialog__selection-list js-smartlink-selection-list"></div>
@@ -548,8 +603,9 @@
         }
 
         selectionList.classList.toggle("smartlink-picker-dialog__selection-list--tags", false);
+        selectionList.classList.toggle("smartlink-picker-dialog__selection-list--gallery", true);
         selectionList.innerHTML = galleryItems.length
-          ? galleryItems.map((item, index) => renderGallerySelectionCard(strings, item, index)).join("")
+          ? galleryItems.map((item, index) => renderGallerySelectionRow(strings, item, index, galleryItems.length)).join("")
           : `<div class="smartlink-picker-dialog__selection-empty">${esc(ui(strings, "picker_no_items_selected"))}</div>`;
 
         if (applyButton) {
@@ -563,6 +619,7 @@
         }
 
         selectionList.classList.toggle("smartlink-picker-dialog__selection-list--tags", true);
+        selectionList.classList.toggle("smartlink-picker-dialog__selection-list--gallery", false);
         selectionList.innerHTML = tagItems.length
           ? tagItems.map((item, index) => renderTagSelectionCard(strings, item, index)).join("")
           : `<div class="smartlink-picker-dialog__selection-empty">${esc(ui(strings, "picker_no_tags_selected"))}</div>`;
@@ -792,6 +849,65 @@
       document.addEventListener("onMediaFileSelected", onMediaSelected);
 
       dialog.addEventListener("click", (event) => {
+        const manualAddButton = event.target.closest(".js-smartlink-manual-add");
+
+        if (manualAddButton) {
+          const manualField = dialog.querySelector(".js-smartlink-manual-src");
+          const src = String(manualField?.value || "").trim();
+          const mode = String(manualAddButton.dataset.mode || "external").trim() || "external";
+
+          if (!src) {
+            return;
+          }
+
+          galleryItems.push({
+            type: mode === "provider" ? "video" : "image",
+            src: normaliseJoomlaMediaValue(src),
+            label: basename(src),
+            poster: "",
+            source_type: mode
+          });
+
+          if (manualField) {
+            manualField.value = "";
+          }
+
+          if (valueField) {
+            valueField.value = serialiseGallery(galleryItems);
+          }
+
+          renderGallerySelection();
+          return;
+        }
+
+        const actionButton = event.target.closest(".js-smartlink-selection-action");
+
+        if (actionButton) {
+          const index = Number(actionButton.dataset.index);
+          const action = String(actionButton.dataset.action || "");
+
+          if (!Number.isInteger(index) || index < 0 || index >= galleryItems.length) {
+            return;
+          }
+
+          if (action === "previous" && index > 0) {
+            const [item] = galleryItems.splice(index, 1);
+            galleryItems.splice(index - 1, 0, item);
+          } else if (action === "next" && index < galleryItems.length - 1) {
+            const [item] = galleryItems.splice(index, 1);
+            galleryItems.splice(index + 1, 0, item);
+          } else if (action === "remove") {
+            galleryItems.splice(index, 1);
+          }
+
+          if (valueField) {
+            valueField.value = serialiseGallery(galleryItems);
+          }
+
+          renderGallerySelection();
+          return;
+        }
+
         const removeButton = event.target.closest(".js-smartlink-selection-remove");
 
         if (!removeButton) {

@@ -29,6 +29,11 @@ Priority guide:
   - Make the SmartLink builder respect Joomla language packs consistently.
   - Mixed-language admin UI should be treated as a bug, not as a cosmetic detail.
 
+- [ ] [P1] Cross-kind carry should not allow image sources into `video`
+  - When switching to `video` from another kind, the carry logic currently accepts image URLs/files as a valid video source.
+  - `video` should only retain carried values that are actually valid video/provider sources for the selected source mode.
+  - Invalid carried values should be cleared or rejected during kind transition, not silently accepted.
+
 ## Core Features / Model
 
 - [ ] [P3] Metadata mode
@@ -117,6 +122,35 @@ Priority guide:
   - Review picker UX, source model, emitted HTML, preview behavior, reopen/import, and frontend rendering.
   - Investigate whether gallery should support mixed-source items in one collection (e.g. local + web).
   - Revisit whether the current gallery HTML contract is actually good enough or needs redesign.
+  - Current concrete gallery bugs / cleanup from the `1.13.0` groundwork:
+    - `Clear` / `Add` button labels are missing in the builder UI.
+    - The action list still shows the old `Open items` option and must be reduced to the agreed gallery action matrix.
+    - A shared `Source` selector still appears as if it applies to the whole collection; this must be removed from the gallery authoring flow.
+    - Gallery item thumbnail controls are still using the old bulky control style, thumbnail loading is broken, and Joomla `JREMOVE` leakage appears in the UI.
+    - Gallery content toggles still expose `Icon` / `Text` even though these were intentionally disabled for gallery; `View on Page` should follow the normal shared logic.
+    - `Columns` still appears in `Advanced`; this needs to be reconciled with the new gallery-display/grid plan.
+    - Gallery output still writes object arrays into `data-*` attributes as `[object Object]`, which breaks runtime behavior.
+    - `Open items` currently emits the wrong inline output contract (old wrapper/grid output instead of the new gallery direction).
+    - `Open in popup` currently emits the old links list contract instead of the shared gallery viewer contract.
+  - Current agreed direction:
+    - gallery remains one SmartLink that owns a collection, not many independent SmartLinks
+    - remove `Open link` as a gallery action; keep only actions that make sense for gallery display (`No action`, popup/preview, toggle/inline view)
+    - gallery items should be autonomous objects with simple per-item data only, not full per-item SmartLink presentation
+    - item model should stay minimal:
+      - `type`
+      - `src`
+      - `poster` / thumbnail fallback where relevant
+      - `label`
+      - optional per-item source metadata only if really needed by the picker flow
+    - source type should not be one shared mode for the whole gallery; mixed-source collections should be possible
+    - gallery display/view mode should be configured as gallery-specific UI, not folded into the general `Structure` field
+    - in the builder UI, grid settings should stay compact:
+      - use a small toggle for grid mode
+      - only when enabled, reveal the two numeric controls for the grid dimensions
+    - popup and inline/view-on-page should share the same gallery view contract, not two different renderers
+    - thumbnails inside the gallery are navigation controls, not nested SmartLinks with their own actions
+    - clicking the main/full item does nothing extra by default
+    - core contract should assume a visible main item area plus navigation area; more complex grid-only or lightbox-like experiences can be layered externally with CSS/JS on top of stable markup
 
 ## Ideas / Later
 

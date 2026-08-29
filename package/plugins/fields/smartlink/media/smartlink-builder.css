@@ -168,7 +168,8 @@
 
 .smartlink-builder__input-prefix,
 .smartlink-builder__input-thumb,
-.smartlink-builder__input-picker {
+.smartlink-builder__input-picker,
+.smartlink-builder__source-buttons {
   flex: 0 0 auto;
 }
 
@@ -209,12 +210,17 @@
 .smartlink-builder__input-prefix-button.has-clear:hover::after,
 .smartlink-builder__input-prefix-button.has-clear:focus-visible::after {
   color: #8a2030;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.64);
 }
 
 .smartlink-builder__input-prefix-button.has-clear:hover .smartlink-icon,
 .smartlink-builder__input-prefix-button.has-clear:focus-visible .smartlink-icon {
-  opacity: 0.2;
+  opacity: 0.45;
+}
+
+.smartlink-builder__input-prefix-button.has-clear:hover.smartlink-builder__input-thumb,
+.smartlink-builder__input-prefix-button.has-clear:focus-visible.smartlink-builder__input-thumb {
+  filter: saturate(0.92) brightness(0.9);
 }
 
 .smartlink-builder__input-prefix--icon .smartlink-icon {
@@ -256,6 +262,39 @@
   border-left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+}
+
+.smartlink-builder__source-buttons {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.smartlink-builder__source-mode {
+  min-width: 42px;
+  padding: 0 10px;
+  border-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.smartlink-builder__source-mode + .smartlink-builder__source-mode {
+  margin-left: -1px;
+}
+
+.smartlink-builder__source-mode.is-active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  position: relative;
+  z-index: 1;
+}
+
+.smartlink-builder__source-value[readonly] {
+  background: #fff;
+  cursor: default;
 }
 
 .smartlink-builder__readonly[readonly] {
@@ -856,7 +895,7 @@
 .smartlink-builder__gallery-card {
   display: grid;
   gap: 8px;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
   align-items: center;
   padding: 8px;
   border: 1px solid #e5e7eb;
@@ -867,10 +906,73 @@
 .smartlink-builder__gallery-preview {
   display: grid;
   place-items: center;
-  min-height: 72px;
+  width: 42px;
+  min-height: 42px;
   overflow: hidden;
   border-radius: 8px;
   background: #dbe6eb;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.smartlink-builder__gallery-layout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  align-items: start;
+}
+
+.smartlink-builder__gallery-main,
+.smartlink-builder__gallery-side {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.smartlink-builder__gallery-summary-list {
+  display: grid;
+  gap: 8px;
+}
+
+.smartlink-builder__gallery-summary-item {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.smartlink-builder__gallery-summary-preview {
+  display: block;
+  width: 42px;
+  min-height: 42px;
+  border-radius: 8px;
+  background-color: #dbe6eb;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.smartlink-builder__gallery-summary-preview.is-empty {
+  background-image: linear-gradient(135deg, #eef2f7 0, #eef2f7 45%, #f8fafc 45%, #f8fafc 55%, #eef2f7 55%, #eef2f7 100%);
+}
+
+.smartlink-builder__gallery-summary-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.smartlink-builder__gallery-item-control {
+  display: grid;
+}
+
+.smartlink-builder__gallery-grid-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .smartlink-builder__gallery-preview img,
@@ -1090,6 +1192,28 @@ div.smartlink {
 
 .smartlink-thumb--fit-cover > img.smartlink-image {
   object-fit: cover;
+}
+
+.smartlink-builder__gallery-preview.has-image img {
+  display: none;
+}
+
+.smartlink-builder__gallery-preview.is-empty {
+  background-image: linear-gradient(135deg, #eef2f7 0, #eef2f7 45%, #f8fafc 45%, #f8fafc 55%, #eef2f7 55%, #eef2f7 100%);
+}
+
+.smartlink-builder__gallery-type,
+.smartlink-builder__gallery-remove {
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.smartlink-builder__gallery-type {
+  color: #52657a;
 }
 
 .smartlink-thumb--fit-contain > img.smartlink-image {
@@ -1485,6 +1609,10 @@ span.smartlink-wrapper > video.smartlink-video,
   overflow: auto;
 }
 
+.smartlink-picker-dialog__selection-list--gallery {
+  grid-template-columns: 1fr;
+}
+
 .smartlink-picker-dialog__selection-list--tags {
   display: flex;
   flex-wrap: wrap;
@@ -1585,6 +1713,62 @@ span.smartlink-wrapper > video.smartlink-video,
 .smartlink-picker-dialog__selection-remove:hover,
 .smartlink-picker-dialog__selection-remove:focus-visible {
   background: rgba(15, 23, 42, 0.9);
+}
+
+.smartlink-picker-dialog__selection-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #d7e0e7;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.smartlink-picker-dialog__selection-row-preview {
+  display: block;
+  width: 42px;
+  min-height: 42px;
+  border-radius: 8px;
+  background-color: #dbe6eb;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.smartlink-picker-dialog__selection-row-preview--empty {
+  background-image: linear-gradient(135deg, #eef2f7 0, #eef2f7 45%, #f8fafc 45%, #f8fafc 55%, #eef2f7 55%, #eef2f7 100%);
+}
+
+.smartlink-picker-dialog__selection-row-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.smartlink-picker-dialog__selection-row-path {
+  font-size: 12px;
+  color: #4f6770;
+  word-break: break-word;
+}
+
+.smartlink-picker-dialog__selection-row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.smartlink-picker-dialog__selection-action {
+  min-width: 36px;
+  padding: 0 8px;
+}
+
+.smartlink-picker-dialog__manual {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .smartlink-picker-dialog__selection-empty {

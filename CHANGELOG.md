@@ -9,6 +9,18 @@ The format is based loosely on Keep a Changelog.
 ### Changed
 - Ongoing builder UX, localization, output, and media/gallery improvements tracked in `TODO.md`.
 
+## [1.13.1] - 2026-04-15
+
+### Changed
+- Refined source picker prefixes so clear-hover no longer washes out thumbnails too aggressively.
+- Continued the gallery builder cleanup with more compact item rows and icon-only add/clear/remove controls.
+
+## [1.13.0] - 2026-04-15
+
+### Changed
+- Started the gallery redesign by removing the old shared source-mode model from the builder and moving gallery authoring toward mixed-source item collection editing.
+- Restricted gallery actions in the builder to the currently supported inline/toggle gallery contract instead of exposing the old per-item open-link behavior.
+
 ## [1.12.3] - 2026-04-14
 
 ### Changed
