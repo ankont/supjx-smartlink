@@ -3,6 +3,163 @@
   <fields name="fieldparams">
     <fieldset name="basic" label="PLG_FIELDS_SMARTLINK_FIELDSET_BASIC">
       <field
+        name="authoring_profile"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_LABEL"
+        description="PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_DESC"
+        default="all"
+        class="btn-group"
+        layout="joomla.form.field.radio.buttons"
+      >
+        <option value="all">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_ALL</option>
+        <option value="none">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_NONE</option>
+        <option value="custom">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_CUSTOM</option>
+      </field>
+      <field
+        name="author_feature_preview"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_PREVIEW"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_behavior"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_BEHAVIOR"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_image_override"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_IMAGE_OVERRIDE"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_download"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_DOWNLOAD"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_thumbnail"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_THUMBNAIL"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_content"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_CONTENT"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_gallery"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_GALLERY"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_label"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_LABEL"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_video"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_VIDEO"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_attributes"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_ATTRIBUTES"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_linked_parts"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_LINKED_PARTS"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_structure"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_STRUCTURE"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
         name="allowed_kinds"
         type="list"
         label="PLG_FIELDS_SMARTLINK_ALLOWED_KINDS_LABEL"

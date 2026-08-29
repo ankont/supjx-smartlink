@@ -869,6 +869,35 @@ a {
     return fallback;
   }
 
+  function limitsPresentationControls(config) {
+    return String(config?.authoring_profile || "all") !== "all";
+  }
+
+  function authorFeatureEnabled(config, feature) {
+    return !limitsPresentationControls(config) || list(config?.author_features, []).includes(feature);
+  }
+
+  function hasAdvancedControls(config, state) {
+    if (!limitsPresentationControls(config)) {
+      return true;
+    }
+
+    if (["attributes", "structure", "linked_parts"].some((feature) => authorFeatureEnabled(config, feature))) {
+      return true;
+    }
+
+    if (authorFeatureEnabled(config, "image_override") && (allowsImageOverride(state.kind) || state.kind === "image")) {
+      return true;
+    }
+
+    if (authorFeatureEnabled(config, "thumbnail") && isToggleVisible(state.kind, "image")) {
+      return true;
+    }
+
+    return (state.kind === "gallery" && authorFeatureEnabled(config, "gallery"))
+      || (state.kind === "video" && authorFeatureEnabled(config, "video"));
+  }
+
   function normaliseOptionValue(value, options, fallback) {
     const requested = String(value || "").trim();
     return options.some((option) => option[0] === requested) ? requested : fallback;
@@ -4493,8 +4522,10 @@ a {
     return imagePreviewUrl(String(state.preview_image || "").trim());
   }
 
-  function renderGalleryTriggerControl(state) {
-    const mode = String(state.gallery?.trigger_mode || "local").trim() || "local";
+  function renderGalleryTriggerControl(config, state) {
+    const allowsLabel = !limitsPresentationControls(config);
+    const configuredMode = String(state.gallery?.trigger_mode || "local").trim() || "local";
+    const mode = !allowsLabel && configuredMode === "text" ? "local" : configuredMode;
     const clearLabel = ui("button_clear");
     const preview = galleryTriggerPreview(state);
     const valueControl = mode === "text"
@@ -4516,9 +4547,10 @@ a {
             <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "external" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="external" title="${esc(ui("source_web_address"))}" aria-label="${esc(ui("source_web_address"))}">
               <span class="fa-solid fa-globe" aria-hidden="true"></span>
             </button>
-            <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "text" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="text" title="${esc(ui("toggle_text"))}" aria-label="${esc(ui("toggle_text"))}">
-              <span class="fa-solid fa-font" aria-hidden="true"></span>
-            </button>
+            ${allowsLabel ? `
+              <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "text" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="text" title="${esc(ui("toggle_text"))}" aria-label="${esc(ui("toggle_text"))}">
+                <span class="fa-solid fa-font" aria-hidden="true"></span>
+              </button>` : ""}
           </div>
         </div>
       </label>`;
@@ -4584,7 +4616,7 @@ a {
 
     if (state.kind === "gallery") {
       pickerPanel = `
-        ${renderGalleryTriggerControl(state)}
+        ${!limitsPresentationControls(config) || authorFeatureEnabled(config, "image_override") ? renderGalleryTriggerControl(config, state) : ""}
         <div class="smartlink-builder__gallery-layout">
           <div class="smartlink-builder__gallery-main">
             <label class="smartlink-builder__field smartlink-builder__field--full">
@@ -4595,7 +4627,7 @@ a {
               <button type="button" class="btn btn-outline-secondary js-picker">${esc(ui("gallery_manage_items"))}</button>
             </div>
           </div>
-          <div class="smartlink-builder__gallery-side">
+          ${authorFeatureEnabled(config, "gallery") ? `<div class="smartlink-builder__gallery-side">
             <div class="smartlink-builder__linked-parts">
               <label class="smartlink-builder__switch-row smartlink-builder__switch-row--linked-main${state.gallery.grid_enabled ? " is-active" : ""}">
                 <span class="smartlink-builder__switch-control">
@@ -4614,7 +4646,7 @@ a {
                   <input class="form-control js-gallery-rows" type="number" min="1" value="${esc(state.gallery.rows || 1)}">
                 </label>` : ""}
             </div>
-          </div>
+          </div>` : ""}
         </div>
         `;
     } else if (currentMeta.p) {
@@ -4865,6 +4897,10 @@ a {
   }
 
   function renderBehavior(config, state) {
+    if (!authorFeatureEnabled(config, "behavior")) {
+      return "";
+    }
+
     const behaviorModes = modes(config, state.kind);
     const hasMultipleModes = behaviorModes.length > 1;
 
@@ -4887,7 +4923,7 @@ a {
                 </select>`
             }
           </label>
-          ${state.action === "link_download" ? `
+          ${state.action === "link_download" && authorFeatureEnabled(config, "download") ? `
             <label class="smartlink-builder__field">
               <span>${esc(ui("field_download_filename_optional"))}</span>
               <input class="form-control js-download" type="text" value="${esc(state.download_filename)}" placeholder="${esc(downloadFilenameHint(state))}">
@@ -4896,7 +4932,11 @@ a {
       </section>`;
   }
 
-  function renderContent(state) {
+  function renderContent(config, state) {
+    if (!authorFeatureEnabled(config, "content")) {
+      return "";
+    }
+
     const iconDisabled = isToggleDisabled(state.kind, "icon");
     const imageDisabled = isToggleDisabled(state.kind, "image");
     const textDisabled = isToggleDisabled(state.kind, "text");
@@ -4904,7 +4944,7 @@ a {
     const showDisplayInsideToggle = isToggleVisible(state.kind, "displayInside");
     const displayInsideActive = previewModalImpliesView || state.display_inside;
     const displayInsideDisabled = state.action === "preview_modal" || isToggleDisabled(state.kind, "displayInside");
-    const showTextField = isToggleVisible(state.kind, "text") && state.show_text;
+    const showTextField = !limitsPresentationControls(config) && isToggleVisible(state.kind, "text") && state.show_text;
     const galleryTextManagedInSource = state.kind === "gallery" && state.gallery?.trigger_mode === "text";
     const noVisibleContent = !displayInsideActive && !state.show_icon && !state.show_image && !state.show_text;
 
@@ -4951,23 +4991,44 @@ a {
       </section>`;
   }
 
+  function renderCustomLabel(config, state) {
+    if (!limitsPresentationControls(config) || !authorFeatureEnabled(config, "label")) {
+      return "";
+    }
+
+    return `
+      <section class="smartlink-builder__section">
+        <label class="smartlink-builder__field smartlink-builder__field--full">
+          <span>${esc(ui("field_text_to_display"))}</span>
+          <input class="form-control js-label" type="text" value="${esc(state.label)}" placeholder="${esc(labelHint(state))}">
+        </label>
+      </section>`;
+  }
+
   function renderAdvanced(config, state) {
-    const showPopupScopeField = supportsBareLayout(state.kind) && (state.action === "preview_modal" || state.action === "toggle_view" || state.display_inside);
-    const showTargetField = state.action === "link_open";
-    const showRelField = state.action === "link_open";
+    const allowsStructure = authorFeatureEnabled(config, "structure");
+    const allowsAttributes = authorFeatureEnabled(config, "attributes");
+    const allowsImageOverrideFeature = authorFeatureEnabled(config, "image_override");
+    const allowsThumbnail = authorFeatureEnabled(config, "thumbnail");
+    const allowsLinkedParts = authorFeatureEnabled(config, "linked_parts");
+    const allowsVideo = state.kind === "video" && authorFeatureEnabled(config, "video");
+    const allowsGallery = state.kind === "gallery" && authorFeatureEnabled(config, "gallery");
+    const showPopupScopeField = allowsStructure && supportsBareLayout(state.kind) && (state.action === "preview_modal" || state.action === "toggle_view" || state.display_inside);
+    const showTargetField = allowsAttributes && (state.action === "link_open" || limitsPresentationControls(config));
+    const showRelField = allowsAttributes && (state.action === "link_open" || limitsPresentationControls(config));
     const richStructure = state.structure !== "inline";
-    const showSummaryField = richStructure && allowsSummary(state.kind);
-    const showTypeLabelField = richStructure && allowsTypeLabel(state.kind);
-    const showFigureCaptionField = state.structure === "figure" && (state.show_text || state.show_summary || state.show_type_label);
-    const showImageOverrideField = allowsImageOverride(state.kind) && (state.show_image || state.display_inside);
-    const showPreviewImageField = state.action === "preview_modal" && !["image", "gallery"].includes(state.kind) && !showImageOverrideField;
-    const showAltField = state.kind === "image" || state.show_image || state.display_inside;
+    const showSummaryField = allowsStructure && richStructure && allowsSummary(state.kind);
+    const showTypeLabelField = allowsStructure && richStructure && allowsTypeLabel(state.kind);
+    const showFigureCaptionField = allowsStructure && state.structure === "figure" && (state.show_text || state.show_summary || state.show_type_label);
+    const showImageOverrideField = allowsImageOverrideFeature && allowsImageOverride(state.kind);
+    const showPreviewImageField = allowsImageOverrideFeature && authorFeatureEnabled(config, "behavior") && state.action === "preview_modal" && !["image", "gallery"].includes(state.kind) && !showImageOverrideField;
+    const showAltField = allowsImageOverrideFeature && (state.kind === "image" || state.show_image || state.display_inside || showImageOverrideField);
     const thumbnailDefaultsState = state._thumbnail_defaults || thumbnailDefaults({});
-    const showThumbnailPanel = Boolean(state.show_image) || showImageOverrideField || showAltField;
-    const showThumbnailSettings = Boolean(state.show_image);
+    const showThumbnailSettings = allowsThumbnail && Boolean(state.show_image);
+    const showThumbnailPanel = showThumbnailSettings || showImageOverrideField || showAltField;
     const showThumbnailLayoutControls = showThumbnailSettings && Boolean(state.thumbnail_override);
     const showThumbnailEmptyClassField = showThumbnailSettings && thumbnailDefaultsState.empty_mode === "specific";
-    const showViewPositionField = state.display_inside || state.action === "toggle_view";
+    const showViewPositionField = allowsStructure && (state.display_inside || state.action === "toggle_view");
     const clickCandidates = clickParts(state);
     const clickEnabled = state.action !== "no_action";
     const availableClickParts = new Set(clickCandidates);
@@ -5086,12 +5147,13 @@ a {
       <section class="smartlink-builder__section">
         <h4 class="smartlink-builder__section-title">${esc(ui("section_advanced"))}</h4>
         <div class="smartlink-builder__grid">
-          <label class="smartlink-builder__field">
-            <span>${esc(ui("field_structure"))}</span>
-            <select class="form-select js-structure">
-              ${STRUCTURES.map((option) => `<option value="${esc(option[0])}"${option[0] === state.structure ? " selected" : ""}>${esc(uiOptionLabel(option))}</option>`).join("")}
-            </select>
-          </label>
+          ${allowsStructure ? `
+            <label class="smartlink-builder__field">
+              <span>${esc(ui("field_structure"))}</span>
+              <select class="form-select js-structure">
+                ${STRUCTURES.map((option) => `<option value="${esc(option[0])}"${option[0] === state.structure ? " selected" : ""}>${esc(uiOptionLabel(option))}</option>`).join("")}
+              </select>
+            </label>` : ""}
           ${showPreviewImageField ? `
             ${renderImagePickerField(config, state, {
               label: ui("field_popup_image_override"),
@@ -5102,10 +5164,11 @@ a {
               buttonClass: "js-preview-image-picker",
               clearClass: "js-clear-preview-image"
             })}` : ""}
-          ${state.show_icon ? `
+          ${allowsAttributes && state.show_icon ? `
             ${renderIconClassField(config, state)}` : ""}
-          <label class="smartlink-builder__field"><span>${esc(ui("field_css_class"))}</span><input class="form-control js-css" type="text" value="${esc(state.css_class)}"></label>
-          <label class="smartlink-builder__field"><span>${esc(ui("field_title"))}</span><input class="form-control js-title" type="text" value="${esc(state.title)}"></label>
+          ${allowsAttributes ? `
+            <label class="smartlink-builder__field"><span>${esc(ui("field_css_class"))}</span><input class="form-control js-css" type="text" value="${esc(state.css_class)}"></label>
+            <label class="smartlink-builder__field"><span>${esc(ui("field_title"))}</span><input class="form-control js-title" type="text" value="${esc(state.title)}"></label>` : ""}
           ${showTargetField ? `<label class="smartlink-builder__field"><span>${esc(ui("field_open_in"))}</span><input class="form-control js-target" type="text" value="${esc(state.target)}" placeholder="_blank"></label>` : ""}
           ${showRelField ? `<label class="smartlink-builder__field"><span>${esc(ui("field_rel"))}</span><input class="form-control js-rel" type="text" value="${esc(state.rel)}" placeholder="nofollow"></label>` : ""}
           ${showPopupScopeField ? `
@@ -5137,6 +5200,7 @@ a {
               ${thumbnailFields.join("")}
             </div>
           </div>` : ""}
+        ${allowsLinkedParts ? `
         <div class="smartlink-builder__switch-list smartlink-builder__switch-list--five smartlink-builder__linked-parts">
           <label class="smartlink-builder__switch-row smartlink-builder__switch-row--linked-main${state.click_individual_parts ? " is-active" : ""}${!canToggleIndividualParts ? " is-disabled" : ""}" title="${esc(ui("tooltip_linked_parts"))}">
             <span class="smartlink-builder__switch-control">
@@ -5174,10 +5238,10 @@ a {
                 <span class="smartlink-builder__switch-ui" aria-hidden="true"></span>
               </span>
             </label>` : ""}
-        </div>
-        ${(state.kind === "video" || state.kind === "gallery") ? `
+        </div>` : ""}
+        ${(allowsVideo || allowsGallery) ? `
           <div class="smartlink-builder__panel smartlink-builder__grid">
-            ${state.kind === "video" ? `
+            ${allowsVideo ? `
               <label><input class="js-video-controls" type="checkbox"${state.video.controls ? " checked" : ""}> ${esc(ui("video_show_controls"))}</label>
               <label><input class="js-video-autoplay" type="checkbox"${state.video.autoplay ? " checked" : ""}> ${esc(ui("video_autoplay"))}</label>
               <label><input class="js-video-loop" type="checkbox"${state.video.loop ? " checked" : ""}> ${esc(ui("video_repeat"))}</label>
@@ -5192,7 +5256,7 @@ a {
                   </button>
                 </div>
               </label>` : ""}
-            ${state.kind === "gallery" ? `
+            ${allowsGallery ? `
               <label class="smartlink-builder__field"><span>${esc(ui("field_columns"))}</span><input class="form-control js-gallery-columns" type="number" min="1" value="${esc(state.gallery.columns)}"></label>
               <label class="smartlink-builder__field"><span>${esc(ui("field_gap"))}</span><input class="form-control js-gallery-gap" type="number" min="0" value="${esc(state.gallery.gap)}"></label>
               <label class="smartlink-builder__field">
@@ -5210,9 +5274,15 @@ a {
   }
 
   function renderBody(config, state) {
+    if (state._view === "advanced" && !hasAdvancedControls(config, state)) {
+      state._view = "main";
+    }
+
     return state._view === "advanced"
       ? renderAdvanced(config, state)
-      : `<div class="smartlink-builder__two-up">${renderGeneral(config, state)}${renderBehavior(config, state)}</div>${renderContent(state)}`;
+      : `${authorFeatureEnabled(config, "behavior")
+        ? `<div class="smartlink-builder__two-up">${renderGeneral(config, state)}${renderBehavior(config, state)}</div>`
+        : renderGeneral(config, state)}${renderContent(config, state)}${renderCustomLabel(config, state)}`;
   }
 
   function renderPreview() {
@@ -5225,6 +5295,13 @@ a {
 
   function render(root, state, config) {
     const payload = payloadFrom(state);
+    const showPreview = authorFeatureEnabled(config, "preview");
+    const showAdvanced = hasAdvancedControls(config, state);
+
+    if (!showAdvanced && state._view === "advanced") {
+      state._view = "main";
+    }
+
     root._smartlinkPreviewMarkup = hasPreviewValue(payload)
       ? buildMarkup(config, payload)
       : buildPreviewPlaceholder(config, payload);
@@ -5256,11 +5333,11 @@ a {
             }).join("")}
           </aside>
           <div class="smartlink-builder__content">
-            <nav class="smartlink-builder__tabs" aria-label="${esc(ui("aria_sections"))}">
+            ${showAdvanced ? `<nav class="smartlink-builder__tabs" aria-label="${esc(ui("aria_sections"))}">
               <button type="button" class="smartlink-builder__tab${state._view === "main" ? " is-active" : ""} js-view" data-view="main">${esc(ui("tab_general"))}</button>
               <button type="button" class="smartlink-builder__tab${state._view === "advanced" ? " is-active" : ""} js-view" data-view="advanced">${esc(ui("tab_advanced"))}</button>
-            </nav>
-            ${renderPreview()}
+            </nav>` : ""}
+            ${showPreview ? renderPreview() : ""}
             <div class="smartlink-builder__body js-smartlink-body">${renderBody(config, state)}</div>
           </div>
         </div>

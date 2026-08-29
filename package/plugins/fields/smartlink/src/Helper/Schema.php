@@ -59,6 +59,26 @@ final class Schema
     ];
 
     /**
+     * Author-visible builder control groups for custom field definitions.
+     *
+     * @var array<int, string>
+     */
+    public const AUTHOR_FEATURES = [
+        'preview',
+        'behavior',
+        'download',
+        'content',
+        'label',
+        'image_override',
+        'attributes',
+        'thumbnail',
+        'structure',
+        'linked_parts',
+        'gallery',
+        'video',
+    ];
+
+    /**
      * @var array<int, string>
      */
     private const LEGACY_DEFAULT_ACTIONS = [
@@ -195,6 +215,24 @@ final class Schema
             $array = [];
         }
 
+        $authoringProfile = (string) ($array['authoring_profile'] ?? 'all');
+        $authoringProfile = $authoringProfile === 'template' ? 'none' : $authoringProfile;
+        $array['authoring_profile'] = \in_array($authoringProfile, ['all', 'none', 'custom'], true) ? $authoringProfile : 'all';
+        $array['author_features'] = [];
+
+        if ($array['authoring_profile'] === 'custom') {
+            foreach (self::AUTHOR_FEATURES as $feature) {
+                $featureValue = $array['author_feature_' . $feature] ?? true;
+
+                if ($featureValue === '' || $featureValue === null) {
+                    $featureValue = true;
+                }
+
+                if (self::normaliseBoolean($featureValue, true)) {
+                    $array['author_features'][] = $feature;
+                }
+            }
+        }
         $array['allowed_kinds'] = self::normaliseStringList($array['allowed_kinds'] ?? array_merge(self::BASIC_KINDS, self::ADVANCED_KINDS, self::MEDIA_KINDS));
         $array['allowed_actions'] = self::normaliseAllowedActions($array['allowed_actions'] ?? self::ACTIONS);
         $array['default_kind'] = (string) ($array['default_kind'] ?? 'external_url');
@@ -234,6 +272,93 @@ final class Schema
         $array['metadata_required_kinds'] = array_values(array_intersect($array['allowed_kinds'], self::requiredMetadataKinds()));
 
         return $array;
+    }
+
+    /**
+     * Remove author-hidden presentation settings before a custom field is stored.
+     * Destination and resolver snapshot data remain available to template layouts.
+     *
+     * @param   array<string, mixed>  $payload
+     * @param   array<string, mixed>  $config
+     *
+     * @return  array<string, mixed>
+     */
+    public static function applyAuthoringProfile(array $payload, array $config): array
+    {
+        if (($config['authoring_profile'] ?? 'all') === 'all') {
+            return $payload;
+        }
+
+        $features = array_flip($config['author_features'] ?? []);
+        $stored = [];
+
+        foreach (['kind', 'value', 'source_type', 'selection_label', 'selection_href', 'selection_image', 'selection_image_alt', 'selection_summary'] as $key) {
+            if (array_key_exists($key, $payload)) {
+                $stored[$key] = $payload[$key];
+            }
+        }
+
+        if (isset($features['behavior'])) {
+            $stored['action'] = $payload['action'];
+        }
+
+        if (isset($features['behavior'], $features['download']) && $payload['action'] === 'link_download') {
+            $stored['download_filename'] = $payload['download_filename'];
+        }
+
+        if (isset($features['label'])) {
+            $stored['label'] = $payload['label'];
+        }
+
+        if (isset($features['image_override'])) {
+            foreach (['image_override', 'preview_alt'] as $key) {
+                $stored[$key] = $payload[$key];
+            }
+
+            if ($payload['kind'] === 'gallery' || isset($features['behavior'])) {
+                $stored['preview_image'] = $payload['preview_image'];
+            }
+        }
+
+        if (isset($features['content'])) {
+            foreach (['show_icon', 'show_image', 'show_text', 'display_inside'] as $key) {
+                $stored[$key] = $payload[$key];
+            }
+        }
+
+        if (isset($features['attributes'])) {
+            foreach (['title', 'target', 'rel', 'css_class', 'icon_class'] as $key) {
+                $stored[$key] = $payload[$key];
+            }
+        }
+
+        if (isset($features['thumbnail'])) {
+            foreach (['thumbnail_empty_class', 'thumbnail_override', 'thumbnail_position', 'thumbnail_ratio', 'thumbnail_fit', 'thumbnail_size'] as $key) {
+                $stored[$key] = $payload[$key];
+            }
+        }
+
+        if (isset($features['structure'])) {
+            foreach (['popup_scope', 'structure', 'view_position', 'show_summary', 'show_type_label', 'figure_caption_text'] as $key) {
+                $stored[$key] = $payload[$key];
+            }
+        }
+
+        if (isset($features['linked_parts'])) {
+            foreach (['click_individual_parts', 'click_icon', 'click_text', 'click_image', 'click_view'] as $key) {
+                $stored[$key] = $payload[$key];
+            }
+        }
+
+        if ($payload['kind'] === 'gallery' && isset($features['gallery'])) {
+            $stored['gallery'] = $payload['gallery'];
+        }
+
+        if ($payload['kind'] === 'video' && isset($features['video'])) {
+            $stored['video'] = $payload['video'];
+        }
+
+        return $stored;
     }
 
     /**

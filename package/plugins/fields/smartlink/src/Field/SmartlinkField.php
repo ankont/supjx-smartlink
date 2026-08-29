@@ -69,7 +69,9 @@ HTML;
         }
 
         try {
-            return Schema::encode(Schema::sanitizePayload($value, $this->getFieldConfig()));
+            $config = $this->getFieldConfig();
+
+            return Schema::encode(Schema::applyAuthoringProfile(Schema::sanitizePayload($value, $config), $config));
         } catch (\Throwable $error) {
             return (string) $value;
         }
@@ -98,6 +100,19 @@ HTML;
     private function getFieldConfig(): array
     {
         $attributes = [
+            'authoring_profile' => (string) ($this->element['authoring_profile'] ?? ''),
+            'author_feature_preview' => (string) ($this->element['author_feature_preview'] ?? ''),
+            'author_feature_behavior' => (string) ($this->element['author_feature_behavior'] ?? ''),
+            'author_feature_download' => (string) ($this->element['author_feature_download'] ?? ''),
+            'author_feature_content' => (string) ($this->element['author_feature_content'] ?? ''),
+            'author_feature_label' => (string) ($this->element['author_feature_label'] ?? ''),
+            'author_feature_image_override' => (string) ($this->element['author_feature_image_override'] ?? ''),
+            'author_feature_attributes' => (string) ($this->element['author_feature_attributes'] ?? ''),
+            'author_feature_thumbnail' => (string) ($this->element['author_feature_thumbnail'] ?? ''),
+            'author_feature_structure' => (string) ($this->element['author_feature_structure'] ?? ''),
+            'author_feature_linked_parts' => (string) ($this->element['author_feature_linked_parts'] ?? ''),
+            'author_feature_gallery' => (string) ($this->element['author_feature_gallery'] ?? ''),
+            'author_feature_video' => (string) ($this->element['author_feature_video'] ?? ''),
             'allowed_kinds' => (string) ($this->element['allowed_kinds'] ?? ''),
             'allowed_actions' => (string) ($this->element['allowed_actions'] ?? ''),
             'default_kind' => (string) ($this->element['default_kind'] ?? ''),
@@ -107,7 +122,7 @@ HTML;
             'max_gallery_items' => (string) ($this->element['max_gallery_items'] ?? ''),
             'icon_stylesheet_url' => (string) ($this->element['icon_stylesheet_url'] ?? ''),
             'html_output_mode' => (string) ($this->element['html_output_mode'] ?? ''),
-            'asset_version' => '1.13.1',
+            'asset_version' => '1.14.1',
             'use_smartlink_styles' => (string) ($this->element['use_smartlink_styles'] ?? ''),
             'link_button_class' => (string) ($this->element['link_button_class'] ?? ''),
             'thumbnail_empty_mode' => (string) ($this->element['thumbnail_empty_mode'] ?? ''),

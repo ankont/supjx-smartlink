@@ -9,6 +9,17 @@ The format is based loosely on Keep a Changelog.
 ### Changed
 - Ongoing builder UX, localization, output, and media/gallery improvements tracked in `TODO.md`.
 
+## [1.14.1] - 2026-08-29
+
+### Added
+- Added per-field Presentation Controls modes for All, None, or a customized selection of author-visible feature groups.
+- Added configurable author controls for behavior, content parts, labels, image overrides, link attributes, thumbnails, structure, linked parts, galleries, video, and downloads.
+
+### Changed
+- Custom field payloads now remove presentation properties that the field definition does not expose to authors, while retaining destination and resolver data for template layouts.
+- Kept the editor-button SmartLink builder on the full generic authoring interface.
+- Added Preview to the configurable author controls and hide the General/Advanced tabs whenever no Advanced controls are available.
+
 ## [1.13.1] - 2026-04-15
 
 ### Changed

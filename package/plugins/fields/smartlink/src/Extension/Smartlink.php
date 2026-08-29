@@ -25,8 +25,34 @@ final class Smartlink extends FieldsPlugin implements SubscriberInterface
             : [];
 
         $events['onAjaxSmartlink'] = 'handleAjaxSmartlink';
+        $events['onBeforeCompileHead'] = 'loadFieldDefinitionAssets';
 
         return $events;
+    }
+
+    public function loadFieldDefinitionAssets(): void
+    {
+        $application = Factory::getApplication();
+
+        if (!$application->isClient('administrator')) {
+            return;
+        }
+
+        $input = $application->input;
+
+        if ($input->getCmd('option') !== 'com_fields' || $input->getCmd('view') !== 'field') {
+            return;
+        }
+
+        $document = $application->getDocument();
+
+        if (!method_exists($document, 'addScript') || !method_exists($document, 'addStyleSheet')) {
+            return;
+        }
+
+        $mediaBase = rtrim(Uri::root(true), '/') . '/media/plg_fields_smartlink';
+        $document->addStyleSheet($mediaBase . '/smartlink-admin.css');
+        $document->addScript($mediaBase . '/smartlink-admin.js');
     }
 
     /**

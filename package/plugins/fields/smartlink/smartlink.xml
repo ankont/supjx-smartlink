@@ -8,7 +8,7 @@
   <authorEmail>an_kont@yahoo.gr</authorEmail>
   <authorUrl>https://superor.wordpress.com</authorUrl>
   <element>smartlink</element>
-  <version>1.13.1</version>
+  <version>1.14.1</version>
   <description>PLG_FIELDS_SMARTLINK_XML_DESCRIPTION</description>
   <namespace path="src">SuperSoft\Plugin\Fields\Smartlink</namespace>
   <files>
@@ -32,6 +32,8 @@
     <filename>smartlink-builder.css</filename>
     <filename>smartlink-builder.js</filename>
     <filename>pickers.js</filename>
+    <filename>smartlink-admin.css</filename>
+    <filename>smartlink-admin.js</filename>
   </media>
   <config>
     <fields name="params">
