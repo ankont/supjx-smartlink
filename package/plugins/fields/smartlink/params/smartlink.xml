@@ -12,7 +12,6 @@
         layout="joomla.form.field.radio.buttons"
       >
         <option value="all">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_ALL</option>
-        <option value="template">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_TEMPLATE</option>
         <option value="none">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_NONE</option>
         <option value="custom">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_CUSTOM</option>
       </field>
@@ -77,9 +76,45 @@
         <option value="1">JYES</option>
       </field>
       <field
-        name="author_feature_content"
+        name="author_feature_show_thumbnail"
         type="radio"
-        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_CONTENT"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_SHOW_THUMBNAIL"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_show_icon"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_SHOW_ICON"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_show_text"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_SHOW_TEXT"
+        default="1"
+        class="btn-group btn-group-yesno js-smartlink-presentation-feature"
+        layout="joomla.form.field.radio.switcher"
+        showon="authoring_profile:custom"
+      >
+        <option value="0">JNO</option>
+        <option value="1">JYES</option>
+      </field>
+      <field
+        name="author_feature_view_on_page"
+        type="radio"
+        label="PLG_FIELDS_SMARTLINK_AUTHOR_FEATURE_VIEW_ON_PAGE"
         default="1"
         class="btn-group btn-group-yesno js-smartlink-presentation-feature"
         layout="joomla.form.field.radio.switcher"
@@ -236,6 +271,14 @@
         <option value="preview_modal">PLG_FIELDS_SMARTLINK_OPTION_ACTION_PREVIEW_MODAL</option>
         <option value="toggle_view">PLG_FIELDS_SMARTLINK_OPTION_ACTION_TOGGLE_VIEW</option>
       </field>
+      <field
+        name="default_text"
+        type="text"
+        label="PLG_FIELDS_SMARTLINK_DEFAULT_TEXT_LABEL"
+        description="PLG_FIELDS_SMARTLINK_DEFAULT_TEXT_DESC"
+        hint="{resolved_title}"
+        filter="string"
+      />
       <field
         name="validation_profile"
         type="list"

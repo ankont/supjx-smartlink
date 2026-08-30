@@ -8,7 +8,7 @@ It ships as a package with:
 - `Editor Button - SmartLink`
 - `System - SmartLink Assets`
 
-The field stores a JSON payload. The renderer turns that payload into final HTML with the correct link, media, preview, embed, or inline-view behavior.
+The field stores JSON internally, exposes a normalized runtime contract to templates, and can render generic HTML with the correct link, media, preview, embed, or inline-view behavior.
 
 ## What SmartLink Is
 
@@ -92,121 +92,82 @@ Examples:
 
 ## Stored Data Structure
 
-The field value is a single JSON object.
+The field value remains JSON, but schema v2 treats it only as an internal persistence format. Templates should not decode `rawvalue`.
 
 Typical payload:
 
 ```json
 {
-  "kind": "com_content_article",
-  "value": "11",
-  "action": "link_open",
-  "label": "",
-  "title": "",
-  "target": "",
-  "rel": "",
-  "css_class": "",
-  "icon_class": "",
-  "download_filename": "",
-  "source_type": "",
-  "popup_scope": "component",
-  "preview_image": "",
-  "image_override": "",
-  "preview_alt": "",
-  "thumbnail_empty_class": "",
-  "thumbnail_position": "",
-  "thumbnail_ratio": "",
-  "thumbnail_fit": "",
-  "thumbnail_size": "",
-  "selection_summary": "",
-  "show_icon": true,
-  "show_image": false,
-  "show_text": true,
-  "display_inside": false,
-  "click_individual_parts": false,
-  "click_icon": false,
-  "click_text": false,
-  "click_image": false,
-  "click_view": false,
-  "structure": "inline",
-  "view_position": "after",
-  "show_summary": false,
-  "show_type_label": false,
-  "figure_caption_text": false,
-  "video": {},
-  "gallery": {}
+  "version": 2,
+  "target": {
+    "kind": "com_content_article",
+    "value": "11",
+    "source_type": ""
+  },
+  "snapshot": {
+    "display_name": "Example article",
+    "href": "/example-article",
+    "image": "images/example.jpg",
+    "image_alt": "Example",
+    "summary": "Cached picker metadata"
+  },
+  "overrides": {
+    "behavior": {
+      "action": "link_open"
+    },
+    "content": {
+      "show_icon": true,
+      "show_image": false,
+      "show_text": true,
+      "display_inside": false
+    },
+    "structure": {
+      "structure": "inline",
+      "view_position": "after"
+    }
+  }
 }
 ```
 
-Canonical payload properties you can rely on:
-
-- `kind`
-- `value`
-- `action`
-- `label`
-- `title`
-- `target`
-- `rel`
-- `css_class`
-- `icon_class`
-- `download_filename`
-- `source_type`
-- `popup_scope`
-- `preview_image`
-- `image_override`
-- `preview_alt`
-- `thumbnail_empty_class`
-- `thumbnail_position`
-- `thumbnail_ratio`
-- `thumbnail_fit`
-- `thumbnail_size`
-- `selection_summary`
-- `show_icon`
-- `show_image`
-- `show_text`
-- `display_inside`
-- `click_individual_parts`
-- `click_icon`
-- `click_text`
-- `click_image`
-- `click_view`
-- `structure`
-- `view_position`
-- `show_summary`
-- `show_type_label`
-- `figure_caption_text`
-- `video`
-- `gallery`
-
-The builder/editor also uses helper properties during import/reopen:
-
-- `selection_label`
-- `selection_href`
-- `selection_image`
-- `selection_image_alt`
-
-These are useful for editor state and normalization, but the main contract is still the typed payload above.
+`target` is the selected destination, `snapshot` is cached picker metadata used only when live resolution is unavailable, and `overrides` contains author-controlled presentation intent. Hidden presentation controls are not stored as overrides.
 
 ## Rendering Model
 
-Recommended render path:
+At runtime the field plugin exposes a normalized contract:
 
-1. store the JSON payload in the field
-2. let `Fields - SmartLink` render it
+```php
+$smartlink = $field->smartlink;
 
-At runtime, SmartLink resolves the payload into richer data such as:
+$href = $smartlink['resolved']['href'];
+$text = $smartlink['presentation']['visible_text'];
+$showImage = $smartlink['presentation']['show_image'];
+```
 
-- final `href`
-- resolved title/label
-- summary
-- image
-- image alt
-- multi-item lists for tags/gallery
+The contract has three non-overlapping levels:
 
-So there are two layers:
+- `payload`: canonical stored intent only (`target`, fallback `snapshot`, explicit `overrides`)
+- `resolved`: live target/content facts (`href`, `title`, `display_name`, `summary`, `image`, `media`, `items`)
+- `presentation`: final effective behavior and presentation after field defaults and author overrides are merged
 
-- stored payload = author intent and configuration
-- resolved data = runtime information used for HTML output
+Custom templates should trust `resolved` for target facts and `presentation` for rendering decisions. They do not need to know whether an effective value came from a field default or an author override.
+
+Visible text uses one shared precedence chain:
+
+1. explicit author text
+2. field-level default text or pattern
+3. resolved `display_name`
+
+Supported field-default variables are `{filename}`, `{full_filename}`, `{bare_filename}`, `{selection_label}`, `{resolved_title}`, and `{type}`. The HTML `title` attribute remains separate as `presentation.html_title`.
+
+Gallery is a standalone resolved asset. Its items contain media facts and navigation metadata only, never nested SmartLink actions. `presentation.gallery.mode` selects `grid`, `viewer`, or `viewer_with_strip`; grid rows are derived from item count and `columns`.
+
+The authoring Preview first uses the generic renderer and then requests the same server-side contract. A site can customize it by creating:
+
+```text
+templates/<site-template>/html/plg_fields_smartlink/preview.php
+```
+
+The layout receives `$displayData['smartlink']` and `$displayData['context']`. Plugins can also register a `PreviewAdapterInterface` implementation through `onSmartlinkRegisterPreviewAdapters`; returning `null` passes rendering to the next adapter.
 
 Typical output markup uses classes such as:
 

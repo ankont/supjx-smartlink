@@ -67,7 +67,10 @@ final class Schema
         'preview',
         'behavior',
         'download',
-        'content',
+        'show_thumbnail',
+        'show_icon',
+        'show_text',
+        'view_on_page',
         'label',
         'image_override',
         'attributes',
@@ -100,19 +103,7 @@ final class Schema
             return [];
         }
 
-        if (\is_string($raw)) {
-            $decoded = json_decode($raw, true);
-
-            if (!\is_array($decoded)) {
-                throw new InvalidArgumentException('SmartLink JSON is invalid.');
-            }
-
-            $payload = $decoded;
-        } elseif (\is_array($raw)) {
-            $payload = $raw;
-        } else {
-            throw new InvalidArgumentException('SmartLink payload must be a JSON string or array.');
-        }
+        $payload = self::expandStoredPayload(self::decode($raw));
 
         $allowedKinds = self::normaliseStringList($config['allowed_kinds'] ?? array_merge(self::BASIC_KINDS, self::ADVANCED_KINDS, self::MEDIA_KINDS));
         $allowedActions = self::normaliseAllowedActions($config['allowed_actions'] ?? self::ACTIONS);
@@ -216,8 +207,8 @@ final class Schema
         }
 
         $authoringProfile = (string) ($array['authoring_profile'] ?? 'all');
-        $array['authoring_profile'] = \in_array($authoringProfile, ['all', 'template', 'none', 'custom'], true) ? $authoringProfile : 'all';
-        $array['author_features'] = $array['authoring_profile'] === 'template' ? ['preview'] : [];
+        $array['authoring_profile'] = \in_array($authoringProfile, ['all', 'none', 'custom'], true) ? $authoringProfile : 'all';
+        $array['author_features'] = [];
 
         if ($array['authoring_profile'] === 'custom') {
             foreach (self::AUTHOR_FEATURES as $feature) {
@@ -236,6 +227,7 @@ final class Schema
         $array['allowed_actions'] = self::normaliseAllowedActions($array['allowed_actions'] ?? self::ACTIONS);
         $array['default_kind'] = (string) ($array['default_kind'] ?? 'external_url');
         $array['default_action'] = (string) ($array['default_action'] ?? 'link_open');
+        $array['default_text'] = trim((string) ($array['default_text'] ?? ''));
         $array['validation_profile'] = (string) ($array['validation_profile'] ?? 'any');
         $array['allow_external_media'] = (int) ($array['allow_external_media'] ?? 1);
         $array['max_gallery_items'] = max(1, (int) ($array['max_gallery_items'] ?? 12));
@@ -266,7 +258,6 @@ final class Schema
         $array['thumbnail_size_class_sm'] = self::configuredString($array, 'thumbnail_size_class_sm', 'smartlink-thumb--sm');
         $array['thumbnail_size_class_md'] = self::configuredString($array, 'thumbnail_size_class_md', 'smartlink-thumb--md');
         $array['thumbnail_size_class_lg'] = self::configuredString($array, 'thumbnail_size_class_lg', 'smartlink-thumb--lg');
-        $array['template_name'] = self::sanitizeTemplateName((string) ($array['template_name'] ?? ''));
         $array['advanced_kinds'] = array_values(array_intersect($array['allowed_kinds'], self::ADVANCED_KINDS));
         $array['metadata_required_kinds'] = array_values(array_intersect($array['allowed_kinds'], self::requiredMetadataKinds()));
 
@@ -319,10 +310,20 @@ final class Schema
             }
         }
 
-        if (isset($features['content'])) {
-            foreach (['show_icon', 'show_image', 'show_text', 'display_inside'] as $key) {
-                $stored[$key] = $payload[$key];
-            }
+        if (isset($features['show_thumbnail'])) {
+            $stored['show_image'] = $payload['show_image'];
+        }
+
+        if (isset($features['show_icon'])) {
+            $stored['show_icon'] = $payload['show_icon'];
+        }
+
+        if (isset($features['show_text'])) {
+            $stored['show_text'] = $payload['show_text'];
+        }
+
+        if (isset($features['view_on_page'])) {
+            $stored['display_inside'] = $payload['display_inside'];
         }
 
         if (isset($features['attributes'])) {
@@ -365,7 +366,199 @@ final class Schema
      */
     public static function encode(array $payload): string
     {
+        return (string) json_encode(self::toStoredPayload($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Encode the flat builder state without turning it into the stored field schema.
+     */
+    public static function encodeBuilderPayload(array $payload): string
+    {
         return (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @param   mixed  $raw
+     *
+     * @return  array<string, mixed>
+     */
+    public static function decode($raw): array
+    {
+        if (\is_array($raw)) {
+            return $raw;
+        }
+
+        if (!\is_string($raw)) {
+            throw new InvalidArgumentException('SmartLink payload must be a JSON string or array.');
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (!\is_array($decoded)) {
+            throw new InvalidArgumentException('SmartLink JSON is invalid.');
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Convert the internal flat builder payload into the canonical stored schema.
+     *
+     * @param   array<string, mixed>  $payload
+     *
+     * @return  array<string, mixed>
+     */
+    public static function toStoredPayload(array $payload): array
+    {
+        if ((int) ($payload['version'] ?? 0) === 2 && isset($payload['target'])) {
+            return $payload;
+        }
+
+        $stored = [
+            'version' => 2,
+            'target' => self::copyPresent($payload, ['kind', 'value', 'source_type']),
+        ];
+        $snapshot = self::renamePresent(
+            $payload,
+            [
+                'selection_label' => 'display_name',
+                'selection_href' => 'href',
+                'selection_image' => 'image',
+                'selection_image_alt' => 'image_alt',
+                'selection_summary' => 'summary',
+            ]
+        );
+
+        if ($snapshot !== []) {
+            $stored['snapshot'] = $snapshot;
+        }
+
+        $overrides = [];
+        self::addOverrideGroup($overrides, 'behavior', $payload, ['action', 'download_filename']);
+        self::addOverrideGroup($overrides, 'text', $payload, ['label']);
+        self::addOverrideGroup($overrides, 'image', $payload, ['image_override', 'preview_alt', 'preview_image']);
+        self::addOverrideGroup($overrides, 'attributes', $payload, ['title', 'target', 'rel', 'css_class', 'icon_class']);
+        self::addOverrideGroup($overrides, 'content', $payload, ['show_icon', 'show_image', 'show_text', 'display_inside']);
+        self::addOverrideGroup(
+            $overrides,
+            'thumbnail',
+            $payload,
+            ['thumbnail_empty_class', 'thumbnail_override', 'thumbnail_position', 'thumbnail_ratio', 'thumbnail_fit', 'thumbnail_size']
+        );
+        self::addOverrideGroup(
+            $overrides,
+            'structure',
+            $payload,
+            ['popup_scope', 'structure', 'view_position', 'show_summary', 'show_type_label', 'figure_caption_text']
+        );
+        self::addOverrideGroup(
+            $overrides,
+            'linked_parts',
+            $payload,
+            ['click_individual_parts', 'click_icon', 'click_text', 'click_image', 'click_view']
+        );
+        self::addOverrideGroup($overrides, 'video', $payload, ['video']);
+        self::addOverrideGroup($overrides, 'gallery', $payload, ['gallery']);
+
+        if ($overrides !== []) {
+            $stored['overrides'] = $overrides;
+        }
+
+        return $stored;
+    }
+
+    /**
+     * @param   array<string, mixed>  $stored
+     *
+     * @return  array<string, mixed>
+     */
+    private static function expandStoredPayload(array $stored): array
+    {
+        if ((int) ($stored['version'] ?? 0) !== 2 || !\is_array($stored['target'] ?? null)) {
+            return $stored;
+        }
+
+        $payload = (array) $stored['target'];
+        $snapshot = \is_array($stored['snapshot'] ?? null) ? $stored['snapshot'] : [];
+        $snapshotMap = [
+            'display_name' => 'selection_label',
+            'href' => 'selection_href',
+            'image' => 'selection_image',
+            'image_alt' => 'selection_image_alt',
+            'summary' => 'selection_summary',
+        ];
+
+        foreach ($snapshotMap as $storedKey => $flatKey) {
+            if (array_key_exists($storedKey, $snapshot)) {
+                $payload[$flatKey] = $snapshot[$storedKey];
+            }
+        }
+
+        $overrides = \is_array($stored['overrides'] ?? null) ? $stored['overrides'] : [];
+
+        foreach ($overrides as $group) {
+            if (!\is_array($group)) {
+                continue;
+            }
+
+            foreach ($group as $key => $value) {
+                $payload[(string) $key] = $value;
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param   array<string, mixed>  $source
+     * @param   array<int, string>    $keys
+     *
+     * @return  array<string, mixed>
+     */
+    private static function copyPresent(array $source, array $keys): array
+    {
+        $result = [];
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $source)) {
+                $result[$key] = $source[$key];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param   array<string, mixed>   $source
+     * @param   array<string, string>  $map
+     *
+     * @return  array<string, mixed>
+     */
+    private static function renamePresent(array $source, array $map): array
+    {
+        $result = [];
+
+        foreach ($map as $sourceKey => $targetKey) {
+            if (array_key_exists($sourceKey, $source)) {
+                $result[$targetKey] = $source[$sourceKey];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param   array<string, mixed>  $overrides
+     * @param   array<string, mixed>  $source
+     * @param   array<int, string>    $keys
+     */
+    private static function addOverrideGroup(array &$overrides, string $name, array $source, array $keys): void
+    {
+        $group = self::copyPresent($source, $keys);
+
+        if ($group !== []) {
+            $overrides[$name] = $group;
+        }
     }
 
     private static function normaliseThumbnailEmptyMode(string $value): string
@@ -507,9 +700,12 @@ final class Schema
                 if (\is_array($item)) {
                     $items[] = [
                         'src' => self::sanitizeUrl((string) ($item['src'] ?? '')),
-                        'type' => trim((string) ($item['type'] ?? 'image')),
+                        'type' => ($item['type'] ?? 'image') === 'video' ? 'video' : 'image',
                         'label' => trim((string) ($item['label'] ?? '')),
                         'poster' => self::sanitizeUrl((string) ($item['poster'] ?? '')),
+                        'source_type' => \in_array((string) ($item['source_type'] ?? ''), ['local', 'external', 'provider'], true)
+                            ? (string) $item['source_type']
+                            : '',
                     ];
                     continue;
                 }
@@ -519,6 +715,7 @@ final class Schema
                     'type' => 'image',
                     'label' => '',
                     'poster' => '',
+                    'source_type' => '',
                 ];
             }
 
@@ -565,17 +762,16 @@ final class Schema
 
     private static function normaliseGalleryOptions(array $options): array
     {
-        $layout = (string) ($options['layout'] ?? 'grid');
+        $mode = (string) ($options['mode'] ?? 'grid');
+
         $columns = max(1, (int) ($options['columns'] ?? 3));
         $gap = max(0, (int) ($options['gap'] ?? 16));
-        $linkBehavior = (string) ($options['link_behavior'] ?? 'open');
         $sizeMode = (string) ($options['image_size_mode'] ?? 'cover');
 
         return [
-            'layout' => \in_array($layout, ['grid'], true) ? $layout : 'grid',
+            'mode' => \in_array($mode, ['grid', 'viewer', 'viewer_with_strip'], true) ? $mode : 'grid',
             'columns' => $columns,
             'gap' => $gap,
-            'link_behavior' => \in_array($linkBehavior, ['open', 'lightbox-hook'], true) ? $linkBehavior : 'open',
             'image_size_mode' => \in_array($sizeMode, ['cover', 'contain', 'stretch', 'stretch_width', 'stretch_height'], true) ? $sizeMode : 'cover',
         ];
     }
@@ -755,17 +951,6 @@ final class Schema
             $payload['show_text'] = false;
         }
 
-        if ((empty($payload['display_inside']) || ($payload['action'] ?? '') === 'toggle_view') && empty($payload['show_icon']) && empty($payload['show_image']) && empty($payload['show_text'])) {
-            $fallbackKeys = ($payload['kind'] ?? '') === 'image' ? ['image', 'text', 'icon'] : ['text', 'image', 'icon'];
-
-            foreach ($fallbackKeys as $key) {
-                if (self::normaliseToggle((string) ($payload['kind'] ?? ''), $key, null)) {
-                    $payload['show_' . $key] = true;
-                    break;
-                }
-            }
-        }
-
         return self::normaliseClickSelection($payload);
     }
 
@@ -927,16 +1112,6 @@ final class Schema
         $value = preg_replace('/\s+/u', ' ', $value) ?: '';
 
         return function_exists('mb_substr') ? mb_substr($value, 0, 320) : substr($value, 0, 320);
-    }
-
-    private static function sanitizeTemplateName(string $value): string
-    {
-        $value = trim(str_replace('\\', '/', $value));
-        $value = preg_replace('#[^A-Za-z0-9/_-]#', '', $value) ?: '';
-        $value = preg_replace('#/+#', '/', $value) ?: '';
-        $value = trim($value, '/');
-
-        return str_contains($value, '..') ? '' : $value;
     }
 
     /**

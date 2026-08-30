@@ -10,11 +10,18 @@ namespace SuperSoft\Plugin\Fields\Smartlink\Extension;
 
 use Joomla\Component\Fields\Administrator\Plugin\FieldsPlugin;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
+use Joomla\Event\GenericEvent;
 use Joomla\Event\SubscriberInterface;
+use SuperSoft\Plugin\Fields\Smartlink\Contract\ContractFactory;
+use SuperSoft\Plugin\Fields\Smartlink\Contract\ResolvedTargetNormalizer;
 use SuperSoft\Plugin\Fields\Smartlink\Helper\Renderer;
 use SuperSoft\Plugin\Fields\Smartlink\Helper\Schema;
 use SuperSoft\Plugin\Fields\Smartlink\Helper\TargetRegistry;
+use SuperSoft\Plugin\Fields\Smartlink\Preview\GenericPreviewAdapter;
+use SuperSoft\Plugin\Fields\Smartlink\Preview\PreviewAdapterRegistry;
+use SuperSoft\Plugin\Fields\Smartlink\Preview\TemplateLayoutPreviewAdapter;
 
 final class Smartlink extends FieldsPlugin implements SubscriberInterface
 {
@@ -84,6 +91,11 @@ final class Smartlink extends FieldsPlugin implements SubscriberInterface
     private function buildAjaxMetadata(): array
     {
         $input = Factory::getApplication()->input;
+
+        if ($input->getCmd('mode') === 'preview') {
+            return $this->buildAjaxPreview();
+        }
+
         $kind = (string) $input->getCmd('kind');
         $rawValue = $input->get('value', '', 'raw');
         $registry = TargetRegistry::createDefault();
@@ -111,10 +123,13 @@ final class Smartlink extends FieldsPlugin implements SubscriberInterface
                 ]
             );
 
-            $resolved = $registry->get($kind)->resolve($payload);
+            $resolved = (new ResolvedTargetNormalizer())->normalise(
+                $payload,
+                $registry->get($kind)->resolve($payload)
+            );
 
             return [
-                'label' => (string) (($resolved['title'] ?? '') ?: ($resolved['label'] ?? '')),
+                'label' => (string) ($resolved['display_name'] ?? ''),
                 'href' => (string) ($resolved['href'] ?? ''),
                 'summary' => (string) ($resolved['summary'] ?? ''),
                 'image' => (string) ($resolved['image'] ?? ''),
@@ -124,6 +139,65 @@ final class Smartlink extends FieldsPlugin implements SubscriberInterface
         } catch (\Throwable $error) {
             return [];
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildAjaxPreview(): array
+    {
+        if (!Session::checkToken('post')) {
+            return ['html' => '', 'error' => 'Invalid token.'];
+        }
+
+        $input = Factory::getApplication()->input;
+        $rawPayload = (string) $input->get('payload', '', 'raw');
+        $rawConfig = (string) $input->get('config', '', 'raw');
+        $decodedConfig = json_decode($rawConfig, true);
+        $config = Schema::fieldConfigFromParams(\is_array($decodedConfig) ? $decodedConfig : []);
+
+        try {
+            $payload = Schema::sanitizePayload($rawPayload, $config);
+            $storedIntent = Schema::applyAuthoringProfile($payload, $config);
+            $effectivePayload = Schema::sanitizePayload($storedIntent, $config);
+            $contract = (new ContractFactory(TargetRegistry::createDefault()))->create($effectivePayload, $config);
+            $context = [
+                'preview' => true,
+                'field' => trim((string) $input->get('field', '', 'raw')),
+                'html_output_mode' => (string) ($config['html_output_mode'] ?? 'compact'),
+                'use_smartlink_styles' => !empty($config['use_smartlink_styles']),
+                'thumbnail_empty_mode' => (string) ($config['thumbnail_empty_mode'] ?? 'generic'),
+                'thumbnail_empty_class' => (string) ($config['thumbnail_empty_class'] ?? 'smartlink-image-empty'),
+                'thumbnail_position' => (string) ($config['thumbnail_position'] ?? 'inline'),
+                'thumbnail_ratio' => (string) ($config['thumbnail_ratio'] ?? 'auto'),
+                'thumbnail_fit' => (string) ($config['thumbnail_fit'] ?? 'cover'),
+                'thumbnail_size' => (string) ($config['thumbnail_size'] ?? 'md'),
+            ];
+
+            return [
+                'html' => $this->previewAdapters($context)->render($contract, $context),
+            ];
+        } catch (\Throwable $error) {
+            return ['html' => '', 'error' => $error->getMessage()];
+        }
+    }
+
+    /**
+     * @param   array<string, mixed>  $context
+     */
+    private function previewAdapters(array $context): PreviewAdapterRegistry
+    {
+        $registry = (new PreviewAdapterRegistry())
+            ->register(new TemplateLayoutPreviewAdapter(), 100)
+            ->register(new GenericPreviewAdapter(), -100);
+        $event = new GenericEvent('onSmartlinkRegisterPreviewAdapters', ['registry' => $registry, 'context' => $context]);
+
+        try {
+            Factory::getApplication()->getDispatcher()->dispatch($event->getName(), $event);
+        } catch (\Throwable $error) {
+        }
+
+        return $registry;
     }
 
     public function onCustomFieldsPrepareField($context, $item, $field): ?string
@@ -149,13 +223,14 @@ final class Smartlink extends FieldsPlugin implements SubscriberInterface
             return '';
         }
 
-        $this->loadAssets(!empty($config['use_smartlink_styles']), ($payload['action'] ?? '') === 'toggle_view');
+        $contract = (new ContractFactory(TargetRegistry::createDefault()))->create($payload, $config);
+        $presentation = (array) ($contract['presentation'] ?? []);
+        $this->loadAssets(!empty($config['use_smartlink_styles']), ($presentation['action'] ?? '') === 'toggle_view');
 
-        $renderer = new Renderer(TargetRegistry::createDefault());
+        $renderer = new Renderer();
         $field->value = $renderer->render(
-            $payload,
+            $contract,
             [
-                'template_name' => (string) ($config['template_name'] ?? ''),
                 'html_output_mode' => (string) ($config['html_output_mode'] ?? 'compact'),
                 'use_smartlink_styles' => !empty($config['use_smartlink_styles']),
                 'thumbnail_empty_mode' => (string) ($config['thumbnail_empty_mode'] ?? 'generic'),
@@ -183,6 +258,7 @@ final class Smartlink extends FieldsPlugin implements SubscriberInterface
                 'thumbnail_size_class_lg' => (string) ($config['thumbnail_size_class_lg'] ?? 'smartlink-thumb--lg'),
             ]
         );
+        $field->smartlink = $contract;
         $field->rawvalue = $rawValue;
 
         return $field->value;

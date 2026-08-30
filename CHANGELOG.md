@@ -6,8 +6,27 @@ The format is based loosely on Keep a Changelog.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-30
+
+### Added
+- Added the normalized `$field->smartlink` contract with separate stored `payload`, runtime `resolved` facts, and effective `presentation` state.
+- Added central text resolution with author override, configurable field default/pattern, and resolved display-name fallback.
+- Added a server-backed authoring Preview adapter registry, a Joomla template override at `html/plg_fields_smartlink/preview.php`, and the generic SmartLink renderer as fallback.
+- Added independent author-visible controls for Thumbnail, Icon, Text, and View on Page.
+- Added a canonical gallery asset model with `grid`, `viewer`, and `viewer_with_strip` presentation modes.
+- Added automated contract, schema, text, gallery, renderer, and preview-adapter tests.
+
 ### Changed
-- Ongoing builder UX, localization, output, and media/gallery improvements tracked in `TODO.md`.
+- Custom fields now store schema v2 JSON organized as `target`, `snapshot`, and explicit `overrides`; raw JSON is no longer the template API.
+- Resolvers now return target/content facts only; they no longer construct media/gallery HTML.
+- Gallery rows are derived from item count and columns. The old `rows`, `grid_enabled`, and item-level `link_behavior` properties were removed.
+- Gallery items retain their own local/external/provider source type but no longer own nested SmartLink actions.
+- Presentation profiles are now strictly `All | None | Customize`; the temporary Template-aligned profile was removed.
+- Removed the unused `LayoutRenderer`, `template_name`, and dormant article/category layout files in favor of the Preview adapter mechanism.
+
+### Breaking
+- Existing test field values must be opened and saved again to be stored as schema v2.
+- Template-managed layouts should consume `$field->smartlink` instead of decoding `$field->rawvalue`.
 
 ## [1.14.2] - 2026-08-29
 

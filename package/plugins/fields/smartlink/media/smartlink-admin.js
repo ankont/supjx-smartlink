@@ -1,6 +1,6 @@
 (() => {
   const FEATURE_COLUMNS = [
-    ["behavior", "download", "content", "label", "attributes", "structure"],
+    ["behavior", "download", "show_thumbnail", "show_icon", "show_text", "view_on_page", "label", "attributes", "structure"],
     ["preview", "image_override", "thumbnail", "gallery", "video", "linked_parts"]
   ];
 

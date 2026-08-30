@@ -646,10 +646,9 @@ import { JoomlaEditorButton } from "editor-api";
           poster: ""
         },
         gallery: {
-          layout: "grid",
+          mode: "grid",
           columns: 3,
           gap: 16,
-          link_behavior: "open",
           image_size_mode: "cover"
         }
       },

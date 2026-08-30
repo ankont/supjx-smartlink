@@ -25,9 +25,8 @@ abstract class AbstractResolver implements ResolverInterface
         return array_merge(
             [
                 'href' => $href,
-                'label' => (string) ($payload['label'] ?? ''),
+                'label' => '',
                 'attributes' => [],
-                'embed' => '',
             ],
             $extra
         );

@@ -207,7 +207,6 @@
     field_trigger: "Trigger",
     field_count: "Count",
     field_items: "Items",
-    field_rows: "Rows",
     field_columns: "Columns",
     field_gap: "Gap",
     field_how_items_fit: "How the items fit",
@@ -2205,13 +2204,10 @@ a {
         poster: String(seed.video?.poster || "")
       },
       gallery: {
-        layout: "grid",
         trigger_mode: seed.gallery?.trigger_mode || (seed.show_text && !seed.show_image ? "text" : "local"),
-        rows: Math.max(1, Number(seed.gallery?.rows || 1)),
-        grid_enabled: Boolean(seed.gallery?.grid_enabled),
+        mode: ["grid", "viewer", "viewer_with_strip"].includes(seed.gallery?.mode) ? seed.gallery.mode : "grid",
         columns: Number(seed.gallery?.columns || 3),
         gap: Number(seed.gallery?.gap || 16),
-        link_behavior: seed.gallery?.link_behavior || "open",
         image_size_mode: seed.gallery?.image_size_mode || "cover"
       },
       _thumbnail_defaults: thumbnailDefaults(config),
@@ -3088,6 +3084,47 @@ a {
       .catch(() => ({}));
   }
 
+  function ajaxPreviewUrl() {
+    const params = new URLSearchParams();
+    params.set("option", "com_ajax");
+    params.set("plugin", "smartlink");
+    params.set("group", "fields");
+    params.set("format", "json");
+    params.set("mode", "preview");
+    return `${siteBasePath()}index.php?${params.toString()}`;
+  }
+
+  function fetchServerPreview(root, payload) {
+    const config = root?._smartlinkConfig || {};
+
+    if (!config.server_preview || !window.fetch) {
+      return Promise.resolve("");
+    }
+
+    const body = new URLSearchParams();
+    const token = window.Joomla?.getOptions?.("csrf.token");
+    body.set("payload", JSON.stringify(payload));
+    body.set("config", JSON.stringify(config));
+    body.set("field", String(config.instance_id || root.dataset.inputId || ""));
+
+    if (token) {
+      body.set(String(token), "1");
+    }
+
+    return window.fetch(ajaxPreviewUrl(), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: body.toString()
+    })
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+      .then((response) => String(unwrapAjaxMetadata(response).html || ""))
+      .catch(() => "");
+  }
+
   function kindNeedsResolvedHref(kind) {
     return [
       "com_content_article",
@@ -3417,7 +3454,6 @@ a {
       const triggerSrcField = root.querySelector(".js-gallery-trigger-src");
       const triggerTextField = root.querySelector(".js-gallery-trigger-text");
       const gridField = root.querySelector(".js-gallery-grid");
-      const rowsField = root.querySelector(".js-gallery-rows");
       state.value = (Array.isArray(state.value) ? state.value : [])
         .map((item) => normaliseGalleryItem(item))
         .filter((item) => item.src);
@@ -3430,14 +3466,11 @@ a {
       }
 
       state.gallery = {
-        layout: "grid",
         trigger_mode: String(root.querySelector(".js-gallery-trigger-mode.is-active")?.dataset.mode || state.gallery.trigger_mode || "local"),
-        rows: Number(rowsField?.value || state.gallery.rows || 1),
-        grid_enabled: Boolean(gridField?.checked),
-        columns: Number(root.querySelector(".js-gallery-columns")?.value || 3),
-        gap: Number(root.querySelector(".js-gallery-gap")?.value || 16),
-        link_behavior: root.querySelector(".js-gallery-link")?.value || "open",
-        image_size_mode: root.querySelector(".js-gallery-size")?.value || "cover"
+        mode: gridField?.checked ? "grid" : "viewer",
+        columns: Number(root.querySelector(".js-gallery-columns")?.value || state.gallery.columns || 3),
+        gap: Number(root.querySelector(".js-gallery-gap")?.value || state.gallery.gap || 16),
+        image_size_mode: root.querySelector(".js-gallery-size")?.value || state.gallery.image_size_mode || "cover"
       };
       if (state.show_text && !state.show_image) {
         state.gallery.trigger_mode = "text";
@@ -3915,32 +3948,6 @@ a {
     return composeStructuredContent(config, payload, image, icon, body, payload.structure === "figure" && payload.figure_caption_text && Boolean(body));
   }
 
-  function galleryLinks(config, payload) {
-    const items = Array.isArray(payload.value) ? payload.value : [];
-    const links = items.map((item) => {
-      const itemPayload = {
-        ...payload,
-        kind: (item.type || "image") === "video" ? "video" : "image",
-        value: item.src || "",
-        label: item.label || "",
-        selection_label: item.label || basename(item.src || "") || "Open",
-        preview_image: item.poster || item.src || "",
-        preview_alt: payload.preview_alt || item.label || ""
-      };
-      const text = item.label || basename(item.src || "") || "Open";
-      return linkMarkup(config, itemPayload, esc(text), {
-        meta: false,
-        href: effectiveHref(itemPayload),
-        attrs: {
-          "data-item": (item.type || "image") === "video" ? "video" : "",
-          "data-poster": normaliseJoomlaMediaValue(item.poster || "")
-        }
-      });
-    }).join("");
-
-    return `<div class="smartlink smartlink-links"${metadataAttr(config, payload)}>${links}</div>`;
-  }
-
   function viewerFallback(config, payload, text) {
     if (payload.action === "no_action") {
       return "";
@@ -4075,6 +4082,31 @@ a {
 
     if (payload.kind === "gallery") {
       const items = Array.isArray(payload.value) ? payload.value : [];
+      const galleryMode = String(payload.gallery?.mode || "grid");
+
+      if (["viewer", "viewer_with_strip"].includes(galleryMode) && items.length) {
+        const first = items[0];
+        const firstMedia = (first.type || "image") === "video"
+          ? (first.poster
+            ? `<img src="${esc(first.poster)}" alt="${esc(first.label || "Video")}" loading="lazy">`
+            : `<video src="${esc(first.src || "")}" controls aria-label="${esc(first.label || "Video")}"></video>`)
+          : `<img src="${esc(first.src || "")}" alt="${esc(first.label || "")}" loading="lazy">`;
+        const contractItems = items.map((item) => ({
+          type: (item.type || "image") === "video" ? "video" : "image",
+          src: item.src || "",
+          display_name: item.label || basename(item.src || ""),
+          poster: item.poster || ""
+        }));
+        const strip = galleryMode === "viewer_with_strip"
+          ? `<div class="smartlink-gallery__strip">${items.map((item, index) => `<button type="button" class="smartlink-gallery__thumb${index === 0 ? " is-active" : ""}" data-gallery-index="${index}">${item.poster || (item.type || "image") !== "video" ? `<img src="${esc(item.poster || item.src || "")}" alt="${esc(item.label || "")}" loading="lazy">` : esc(item.label || "Video")}</button>`).join("")}</div>`
+          : "";
+
+        return `<${wrapperTag} ${viewContainerAttributes(payload, "smartlink-view smartlink-gallery smartlink-gallery--viewer", {
+          "data-smartlink-gallery": "1",
+          "data-gallery-items": JSON.stringify(contractItems)
+        })}><button type="button" class="smartlink-gallery__previous" data-gallery-previous aria-label="Previous">&#8249;</button><div class="smartlink-gallery__stage" data-gallery-stage>${firstMedia}</div><button type="button" class="smartlink-gallery__next" data-gallery-next aria-label="Next">&#8250;</button>${strip}</${wrapperTag}>`;
+      }
+
       const grid = items.map((item) => {
         const itemPayload = {
           ...payload,
@@ -4224,11 +4256,7 @@ a {
     const textOverride = hasConfig ? overrideText : (typeof maybePayload === "string" ? maybePayload : "");
     const text = primaryText(payload, textOverride);
 
-    if (payload.kind === "gallery" && !payload.display_inside && payload.action !== "toggle_view") {
-      return applyHtmlOutputMode(config, galleryLinks(config, payload));
-    }
-
-    if (payload.display_inside || payload.action === "toggle_view") {
+    if (payload.display_inside || payload.action === "toggle_view" || (payload.kind === "gallery" && payload.action === "preview_modal")) {
       return applyHtmlOutputMode(config, buildInlineViewer(config, payload, text));
     }
 
@@ -4629,21 +4657,17 @@ a {
           </div>
           ${authorFeatureEnabled(config, "gallery") ? `<div class="smartlink-builder__gallery-side">
             <div class="smartlink-builder__linked-parts">
-              <label class="smartlink-builder__switch-row smartlink-builder__switch-row--linked-main${state.gallery.grid_enabled ? " is-active" : ""}">
+              <label class="smartlink-builder__switch-row smartlink-builder__switch-row--linked-main${state.gallery.mode === "grid" ? " is-active" : ""}">
                 <span class="smartlink-builder__switch-control">
-                  <input class="js-gallery-grid" type="checkbox"${state.gallery.grid_enabled ? " checked" : ""}>
+                  <input class="js-gallery-grid" type="checkbox"${state.gallery.mode === "grid" ? " checked" : ""}>
                   <span class="smartlink-builder__switch-ui" aria-hidden="true"></span>
                 </span>
                 <span class="smartlink-builder__switch-row-label">${esc(ui("toggle_grid"))}</span>
               </label>
-              ${state.gallery.grid_enabled ? `
+              ${state.gallery.mode === "grid" ? `
                 <label class="smartlink-builder__switch-row smartlink-builder__switch-row--part smartlink-builder__switch-row--icon">
                   <span class="smartlink-builder__switch-row-label">${esc(ui("field_columns"))}</span>
                   <input class="form-control js-gallery-columns" type="number" min="1" value="${esc(state.gallery.columns)}">
-                </label>
-                <label class="smartlink-builder__switch-row smartlink-builder__switch-row--part smartlink-builder__switch-row--icon">
-                  <span class="smartlink-builder__switch-row-label">${esc(ui("field_rows"))}</span>
-                  <input class="form-control js-gallery-rows" type="number" min="1" value="${esc(state.gallery.rows || 1)}">
                 </label>` : ""}
             </div>
           </div>` : ""}
@@ -4933,7 +4957,12 @@ a {
   }
 
   function renderContent(config, state) {
-    if (!authorFeatureEnabled(config, "content")) {
+    const allowsThumbnailToggle = authorFeatureEnabled(config, "show_thumbnail");
+    const allowsIconToggle = authorFeatureEnabled(config, "show_icon");
+    const allowsTextToggle = authorFeatureEnabled(config, "show_text");
+    const allowsViewToggle = authorFeatureEnabled(config, "view_on_page");
+
+    if (![allowsThumbnailToggle, allowsIconToggle, allowsTextToggle, allowsViewToggle].some(Boolean)) {
       return "";
     }
 
@@ -4941,7 +4970,7 @@ a {
     const imageDisabled = isToggleDisabled(state.kind, "image");
     const textDisabled = isToggleDisabled(state.kind, "text");
     const previewModalImpliesView = state.action === "preview_modal" && isToggleVisible(state.kind, "displayInside");
-    const showDisplayInsideToggle = isToggleVisible(state.kind, "displayInside");
+    const showDisplayInsideToggle = allowsViewToggle && isToggleVisible(state.kind, "displayInside");
     const displayInsideActive = previewModalImpliesView || state.display_inside;
     const displayInsideDisabled = state.action === "preview_modal" || isToggleDisabled(state.kind, "displayInside");
     const showTextField = !limitsPresentationControls(config) && isToggleVisible(state.kind, "text") && state.show_text;
@@ -4952,27 +4981,27 @@ a {
       <section class="smartlink-builder__section">
         <h4 class="smartlink-builder__section-title">${esc(ui("section_content"))}</h4>
         <div class="smartlink-builder__switch-list smartlink-builder__switch-list--four">
-          <label class="smartlink-builder__switch-row${state.show_image ? " is-active" : ""}${imageDisabled ? " is-disabled" : ""}">
+          ${allowsThumbnailToggle ? `<label class="smartlink-builder__switch-row${state.show_image ? " is-active" : ""}${imageDisabled ? " is-disabled" : ""}">
             <span class="smartlink-builder__switch-row-label">${esc(ui("toggle_thumbnail"))}</span>
             <span class="smartlink-builder__switch-control">
               <input class="js-show-image" type="checkbox"${state.show_image ? " checked" : ""}${imageDisabled ? " disabled" : ""}>
               <span class="smartlink-builder__switch-ui" aria-hidden="true"></span>
             </span>
-          </label>
-          <label class="smartlink-builder__switch-row${state.show_icon ? " is-active" : ""}${iconDisabled ? " is-disabled" : ""}">
+          </label>` : ""}
+          ${allowsIconToggle ? `<label class="smartlink-builder__switch-row${state.show_icon ? " is-active" : ""}${iconDisabled ? " is-disabled" : ""}">
             <span class="smartlink-builder__switch-row-label">${esc(ui("toggle_icon"))}</span>
             <span class="smartlink-builder__switch-control">
               <input class="js-show-icon" type="checkbox"${state.show_icon ? " checked" : ""}${iconDisabled ? " disabled" : ""}>
               <span class="smartlink-builder__switch-ui" aria-hidden="true"></span>
             </span>
-          </label>
-          <label class="smartlink-builder__switch-row${state.show_text ? " is-active" : ""}${textDisabled ? " is-disabled" : ""}">
+          </label>` : ""}
+          ${allowsTextToggle ? `<label class="smartlink-builder__switch-row${state.show_text ? " is-active" : ""}${textDisabled ? " is-disabled" : ""}">
             <span class="smartlink-builder__switch-row-label">${esc(ui("toggle_text"))}</span>
             <span class="smartlink-builder__switch-control">
               <input class="js-show-text" type="checkbox"${state.show_text ? " checked" : ""}${textDisabled ? " disabled" : ""}>
               <span class="smartlink-builder__switch-ui" aria-hidden="true"></span>
             </span>
-          </label>
+          </label>` : ""}
           ${showDisplayInsideToggle ? `
           <label class="smartlink-builder__switch-row${displayInsideActive ? " is-active" : ""}${displayInsideDisabled ? " is-disabled" : ""}"${displayInsideDisabled ? ` title="${esc(previewModalImpliesView ? ui("tooltip_popup_preview_forced") : ui("tooltip_view_required"))}"` : ""}>
             <span class="smartlink-builder__switch-row-label">${esc(ui("toggle_view_on_page"))}</span>
@@ -5257,7 +5286,6 @@ a {
                 </div>
               </label>` : ""}
             ${allowsGallery ? `
-              <label class="smartlink-builder__field"><span>${esc(ui("field_columns"))}</span><input class="form-control js-gallery-columns" type="number" min="1" value="${esc(state.gallery.columns)}"></label>
               <label class="smartlink-builder__field"><span>${esc(ui("field_gap"))}</span><input class="form-control js-gallery-gap" type="number" min="0" value="${esc(state.gallery.gap)}"></label>
               <label class="smartlink-builder__field">
                 <span>${esc(ui("field_how_items_fit"))}</span>
@@ -5305,6 +5333,7 @@ a {
     root._smartlinkPreviewMarkup = hasPreviewValue(payload)
       ? buildMarkup(config, payload)
       : buildPreviewPlaceholder(config, payload);
+    root._smartlinkPreviewPayload = payload;
     root._smartlinkPreviewStructure = String(payload.structure || "inline");
     root._smartlinkPreviewHasView = Boolean(payload.display_inside);
 
@@ -5716,6 +5745,27 @@ a {
       initialisePreviewFrame(frame);
     };
     frame.srcdoc = previewDocumentHtml(config, markup, structure);
+
+    if (!config.server_preview || !hasPreviewValue(root._smartlinkPreviewPayload || {})) {
+      return;
+    }
+
+    if (root._smartlinkPreviewTimer) {
+      window.clearTimeout(root._smartlinkPreviewTimer);
+    }
+
+    const requestId = Number(root._smartlinkPreviewRequestId || 0) + 1;
+    root._smartlinkPreviewRequestId = requestId;
+    root._smartlinkPreviewTimer = window.setTimeout(() => {
+      fetchServerPreview(root, root._smartlinkPreviewPayload || {}).then((serverMarkup) => {
+        if (!serverMarkup || requestId !== root._smartlinkPreviewRequestId || !frame.isConnected) {
+          return;
+        }
+
+        root._smartlinkPreviewMarkup = serverMarkup;
+        frame.srcdoc = previewDocumentHtml(config, serverMarkup, structure);
+      });
+    }, 180);
   }
 
   function addGalleryItem(state, config, item) {
@@ -5852,7 +5902,6 @@ a {
         || target.classList.contains("js-gallery-manual-type")
         || target.classList.contains("js-gallery-trigger-src")
         || target.classList.contains("js-gallery-trigger-text")
-        || target.classList.contains("js-gallery-rows")
       ) {
         return;
       }
@@ -5867,8 +5916,7 @@ a {
         return;
       }
       if (
-        target.classList.contains("js-gallery-rows")
-        || target.classList.contains("js-gallery-trigger-text")
+        target.classList.contains("js-gallery-trigger-text")
       ) {
         sync(root, state);
         markCanonicalState(state);
@@ -5877,8 +5925,6 @@ a {
           if (mirrorField instanceof HTMLInputElement && mirrorField.disabled) {
             mirrorField.value = target.value;
           }
-        } else {
-          repaint();
         }
         return;
       }

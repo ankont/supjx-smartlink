@@ -24,7 +24,8 @@
     return [
       ".smartlink-view[data-src]",
       ".smartlink-view iframe[data-src]",
-      ".smartlink-view img[data-src]"
+      ".smartlink-view img[data-src]",
+      ".smartlink-view video[data-src]"
     ].join(", ");
   }
 
@@ -188,6 +189,82 @@
     syncToggleButtons(owner, targetId, expanded);
   }
 
+  function galleryItems(gallery) {
+    try {
+      const items = JSON.parse(String(gallery.getAttribute("data-gallery-items") || "[]"));
+      return Array.isArray(items) ? items : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function providerEmbedUrl(src) {
+    try {
+      const url = new URL(src, window.location.href);
+      const host = url.hostname.toLowerCase();
+
+      if (host.includes("youtu.be")) {
+        return `https://www.youtube.com/embed/${encodeURIComponent(url.pathname.replace(/^\//, ""))}`;
+      }
+
+      if (host.includes("youtube.com")) {
+        const id = url.searchParams.get("v") || url.pathname.split("/").filter(Boolean).pop() || "";
+        return id ? `https://www.youtube.com/embed/${encodeURIComponent(id)}` : "";
+      }
+
+      if (host.includes("vimeo.com")) {
+        const id = url.pathname.split("/").filter(Boolean).pop() || "";
+        return id ? `https://player.vimeo.com/video/${encodeURIComponent(id)}` : "";
+      }
+    } catch (error) {
+    }
+
+    return "";
+  }
+
+  function showGalleryItem(gallery, requestedIndex) {
+    const items = galleryItems(gallery);
+    const stage = gallery.querySelector("[data-gallery-stage]");
+
+    if (!items.length || !isElement(stage)) {
+      return;
+    }
+
+    const index = (Number(requestedIndex) + items.length) % items.length;
+    const item = items[index] || {};
+    const src = String(item.src || "").trim();
+    const label = String(item.display_name || "").trim();
+    let media;
+
+    if (item.type === "video") {
+      const embedUrl = String(item.media?.embed_url || "").trim() || providerEmbedUrl(src);
+
+      if (embedUrl) {
+        media = stage.ownerDocument.createElement("iframe");
+        media.src = embedUrl;
+        media.allowFullscreen = true;
+        media.title = label || "Video";
+      } else {
+        media = stage.ownerDocument.createElement("video");
+        media.src = src;
+        media.controls = true;
+        media.poster = String(item.poster || "");
+        media.setAttribute("aria-label", label || "Video");
+      }
+    } else {
+      media = stage.ownerDocument.createElement("img");
+      media.src = src;
+      media.alt = label;
+      media.loading = "lazy";
+    }
+
+    stage.replaceChildren(media);
+    gallery.setAttribute("data-gallery-current", String(index));
+    gallery.querySelectorAll("[data-gallery-index]").forEach((button) => {
+      button.classList.toggle("is-active", Number(button.getAttribute("data-gallery-index")) === index);
+    });
+  }
+
   function install(root = document) {
     scheduleHydration(root);
     watchDeferredMedia(root);
@@ -197,6 +274,22 @@
 
       if (!isElement(target)) {
         return;
+      }
+
+      const galleryControl = target.closest("[data-gallery-previous], [data-gallery-next], [data-gallery-index]");
+
+      if (isElement(galleryControl)) {
+        const gallery = galleryControl.closest("[data-smartlink-gallery='1']");
+
+        if (isElement(gallery)) {
+          event.preventDefault();
+          const current = Number(gallery.getAttribute("data-gallery-current") || 0);
+          const requested = galleryControl.hasAttribute("data-gallery-previous")
+            ? current - 1
+            : (galleryControl.hasAttribute("data-gallery-next") ? current + 1 : Number(galleryControl.getAttribute("data-gallery-index") || 0));
+          showGalleryItem(gallery, requested);
+          return;
+        }
       }
 
       const button = target.closest('[data-toggle-view="1"]');

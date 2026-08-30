@@ -18,24 +18,20 @@ final class Renderer
     private array $context = [];
     private int $toggleViewCounter = 0;
 
-    public function __construct(private readonly TargetRegistry $registry)
-    {
-    }
-
     /**
-     * @param   array<string, mixed>  $payload
+     * @param   array<string, mixed>  $contract
      * @param   array<string, mixed>  $context
      */
-    public function render(array $payload, array $context = []): string
+    public function render(array $contract, array $context = []): string
     {
-        if (empty($payload['kind'])) {
+        if (!\is_array($contract['resolved'] ?? null) || !\is_array($contract['presentation'] ?? null)) {
             return '';
         }
 
         $this->context = $context;
-
-        $kind = (string) ($payload['kind'] ?? '');
-        $resolved = $this->registry->get($kind)->resolve($payload);
+        $resolved = $contract['resolved'];
+        $payload = $this->rendererPayload($contract);
+        $kind = (string) ($resolved['kind'] ?? '');
 
         if (
             !empty($payload['display_inside'])
@@ -45,11 +41,69 @@ final class Renderer
             return $this->buildInlineViewer($payload, $resolved);
         }
 
-        if ($kind === 'gallery') {
-            return $this->buildGalleryLinks($payload);
-        }
-
         return $this->buildStructuredOutput($payload, $resolved);
+    }
+
+    /**
+     * Adapt the public effective state to the renderer's composition helpers.
+     * No defaults or resolver logic are applied here.
+     *
+     * @param   array<string, mixed>  $contract
+     *
+     * @return  array<string, mixed>
+     */
+    private function rendererPayload(array $contract): array
+    {
+        $resolved = (array) ($contract['resolved'] ?? []);
+        $presentation = (array) ($contract['presentation'] ?? []);
+        $thumbnail = (array) ($presentation['thumbnail'] ?? []);
+        $linkedParts = (array) ($presentation['linked_parts'] ?? []);
+        $gallery = (array) ($presentation['gallery'] ?? []);
+
+        return [
+            'kind' => (string) ($resolved['kind'] ?? ''),
+            'value' => (string) ($resolved['href'] ?? ''),
+            'action' => (string) ($presentation['action'] ?? 'no_action'),
+            'label' => (string) ($presentation['visible_text'] ?? ''),
+            'selection_label' => (string) ($resolved['display_name'] ?? ''),
+            'title' => (string) ($presentation['html_title'] ?? ''),
+            'target' => (string) ($presentation['target'] ?? ''),
+            'rel' => (string) ($presentation['rel'] ?? ''),
+            'css_class' => (string) ($presentation['css_class'] ?? ''),
+            'icon_class' => (string) ($presentation['icon_class'] ?? ''),
+            'download_filename' => (string) ($presentation['download_filename'] ?? ''),
+            'popup_scope' => (string) ($presentation['popup_scope'] ?? 'component'),
+            'preview_image' => (string) ($presentation['popup_image'] ?? ''),
+            'image_override' => (string) ($presentation['image'] ?? ''),
+            'preview_alt' => (string) ($presentation['image_alt'] ?? ''),
+            'show_icon' => !empty($presentation['show_icon']),
+            'show_image' => !empty($presentation['show_image']),
+            'show_text' => !empty($presentation['show_text']),
+            'display_inside' => !empty($presentation['display_inside']),
+            'click_individual_parts' => !empty($linkedParts['enabled']),
+            'click_icon' => !empty($linkedParts['icon']),
+            'click_text' => !empty($linkedParts['text']),
+            'click_image' => !empty($linkedParts['thumbnail']),
+            'click_view' => !empty($linkedParts['view']),
+            'structure' => (string) ($presentation['structure'] ?? 'inline'),
+            'view_position' => (string) ($presentation['view_position'] ?? 'after'),
+            'show_summary' => !empty($presentation['show_summary']),
+            'show_type_label' => !empty($presentation['show_type_label']),
+            'figure_caption_text' => !empty($presentation['figure_caption_text']),
+            'thumbnail_empty_mode' => (string) ($thumbnail['empty_mode'] ?? 'generic'),
+            'thumbnail_empty_class' => (string) ($thumbnail['empty_class'] ?? ''),
+            'thumbnail_position' => (string) ($thumbnail['position'] ?? 'inline'),
+            'thumbnail_ratio' => (string) ($thumbnail['ratio'] ?? 'auto'),
+            'thumbnail_fit' => (string) ($thumbnail['fit'] ?? 'cover'),
+            'thumbnail_size' => (string) ($thumbnail['size'] ?? 'md'),
+            'video' => (array) ($presentation['video'] ?? []),
+            'gallery' => [
+                'mode' => (string) ($gallery['mode'] ?? 'grid'),
+                'columns' => (int) ($gallery['columns'] ?? 3),
+                'gap' => (int) ($gallery['gap'] ?? 16),
+                'image_size_mode' => (string) ($gallery['fit'] ?? 'cover'),
+            ],
+        ];
     }
 
     /**
@@ -217,18 +271,18 @@ final class Renderer
                 '<figure %s><img %s alt="%s"></figure>',
                 $this->stringifyAttributes($this->buildViewContainerAttributes($payload, ['smartlink-image'])),
                 $this->mediaSourceAttributes($src, $payload, 'img'),
-                htmlspecialchars($this->imageAlt($payload, $resolved), ENT_COMPAT, 'UTF-8')
+                htmlspecialchars($this->imageAlt($payload), ENT_COMPAT, 'UTF-8')
             );
 
             return $this->wrapPart($payload, $resolved, $body, !empty($targets['view']), ['smartlink-part--view']);
         }
 
         if ($kind === 'video') {
-            return $this->applyToggleViewAttributes((string) ($resolved['embed'] ?? ''), $payload);
+            return $this->buildVideoViewer($payload, $resolved);
         }
 
         if ($kind === 'gallery') {
-            return $this->buildGalleryGrid($payload);
+            return $this->buildGallery($payload, $resolved);
         }
 
         $href = $this->resolvedHref($payload, $resolved);
@@ -407,14 +461,14 @@ final class Renderer
     private function imageMarkup(array $payload, array $resolved): string
     {
         $settings = $this->effectiveThumbnailSettings($payload);
-        $src = $this->imageSource($payload, $resolved);
+        $src = $this->imageSource($payload);
         $classes = $this->thumbnailClasses($settings, $src === '');
         if ($src !== '') {
             return sprintf(
                 '<span class="%s"><img src="%s" alt="%s" loading="lazy"></span>',
                 htmlspecialchars(implode(' ', $classes), ENT_COMPAT, 'UTF-8'),
                 htmlspecialchars($src, ENT_COMPAT, 'UTF-8'),
-                htmlspecialchars($this->imageAlt($payload, $resolved), ENT_COMPAT, 'UTF-8')
+                htmlspecialchars($this->imageAlt($payload), ENT_COMPAT, 'UTF-8')
             );
         }
 
@@ -442,11 +496,12 @@ final class Renderer
         $parts = [];
 
         if (!empty($payload['show_type_label'])) {
-            $parts[] = '<span class="smartlink-type">' . htmlspecialchars($this->kindTypeLabel((string) ($payload['kind'] ?? '')), ENT_COMPAT, 'UTF-8') . '</span>';
+            $typeLabel = trim((string) ($resolved['type_label'] ?? ''));
+            $parts[] = '<span class="smartlink-type">' . htmlspecialchars($typeLabel, ENT_COMPAT, 'UTF-8') . '</span>';
         }
 
         if (!empty($payload['show_text'])) {
-            $title = $this->primaryText($payload, $resolved);
+            $title = $this->primaryText($payload);
 
             if ($title !== '') {
                 $parts[] = htmlspecialchars($title, ENT_COMPAT, 'UTF-8');
@@ -454,7 +509,7 @@ final class Renderer
         }
 
         if (!empty($payload['show_summary'])) {
-            $summary = $this->summaryText($payload, $resolved);
+            $summary = $this->summaryText($resolved);
 
             if ($summary !== '') {
                 $parts[] = '<span class="smartlink-summary">' . htmlspecialchars($summary, ENT_COMPAT, 'UTF-8') . '</span>';
@@ -476,56 +531,24 @@ final class Renderer
      */
     private function buildTextLink(array $payload, array $resolved): string
     {
-        $text = $this->primaryText($payload, $resolved);
+        $text = $this->primaryText($payload);
 
         return $this->wrapBody($payload, $resolved, htmlspecialchars($text, ENT_COMPAT, 'UTF-8'));
     }
 
     /**
      * @param   array<string, mixed>  $payload
+     * @param   array<string, mixed>  $resolved
      */
-    private function buildGalleryLinks(array $payload): string
+    private function buildGallery(array $payload, array $resolved): string
     {
-        $items = \is_array($payload['value'] ?? null) ? $payload['value'] : [];
-        $links = [];
+        $items = \is_array($resolved['items'] ?? null) ? $resolved['items'] : [];
+        $mode = (string) ($payload['gallery']['mode'] ?? 'grid');
 
-        foreach ($items as $item) {
-            if (!\is_array($item) || empty($item['src'])) {
-                continue;
-            }
-
-            $href = $this->normaliseMediaHref((string) $item['src']);
-
-            if ($href === '') {
-                continue;
-            }
-
-            $itemPayload = $payload;
-            $itemPayload['kind'] = (($item['type'] ?? 'image') === 'video') ? 'video' : 'image';
-            $itemPayload['value'] = $href;
-            $itemPayload['label'] = (string) ($item['label'] ?? '');
-            $itemPayload['selection_label'] = (string) (($item['label'] ?? '') ?: basename((string) parse_url($href, PHP_URL_PATH)));
-
-            $links[] = $this->wrapBody(
-                $itemPayload,
-                ['href' => $href],
-                htmlspecialchars($this->primaryText($itemPayload, ['href' => $href]), ENT_COMPAT, 'UTF-8')
-            );
+        if ($mode === 'viewer' || $mode === 'viewer_with_strip') {
+            return $this->buildGalleryViewer($payload, $items, $mode === 'viewer_with_strip');
         }
 
-        if ($links === []) {
-            return '';
-        }
-
-        return '<div class="smartlink smartlink-links">' . implode('', $links) . '</div>';
-    }
-
-    /**
-     * @param   array<string, mixed>  $payload
-     */
-    private function buildGalleryGrid(array $payload): string
-    {
-        $items = \is_array($payload['value'] ?? null) ? $payload['value'] : [];
         $columns = max(1, (int) (($payload['gallery']['columns'] ?? 3)));
         $gap = max(0, (int) (($payload['gallery']['gap'] ?? 16)));
         $sizeMode = (string) (($payload['gallery']['image_size_mode'] ?? 'cover'));
@@ -545,13 +568,13 @@ final class Renderer
             if (($item['type'] ?? 'image') === 'video') {
                 $html[] = '<span class="smartlink-item">'
                     . (!empty($item['poster'])
-                        ? '<img ' . $this->mediaSourceAttributes($this->normaliseMediaHref((string) $item['poster']), $payload, 'img') . ' alt="' . htmlspecialchars((string) (($item['label'] ?? '') ?: 'Video'), ENT_COMPAT, 'UTF-8') . '">'
-                        : '<span class="smartlink-item-label">' . htmlspecialchars((string) (($item['label'] ?? '') ?: 'Video'), ENT_COMPAT, 'UTF-8') . '</span>')
+                        ? '<img ' . $this->mediaSourceAttributes($this->normaliseMediaHref((string) $item['poster']), $payload, 'img') . ' alt="' . htmlspecialchars((string) (($item['display_name'] ?? '') ?: 'Video'), ENT_COMPAT, 'UTF-8') . '">'
+                        : '<span class="smartlink-item-label">' . htmlspecialchars((string) (($item['display_name'] ?? '') ?: 'Video'), ENT_COMPAT, 'UTF-8') . '</span>')
                     . '</span>';
                 continue;
             }
 
-            $html[] = '<span class="smartlink-item"><img ' . $this->mediaSourceAttributes($href, $payload, 'img') . ' alt="' . htmlspecialchars((string) ($item['label'] ?? ''), ENT_COMPAT, 'UTF-8') . '"></span>';
+            $html[] = '<span class="smartlink-item"><img ' . $this->mediaSourceAttributes($href, $payload, 'img') . ' alt="' . htmlspecialchars((string) ($item['display_name'] ?? ''), ENT_COMPAT, 'UTF-8') . '"></span>';
         }
 
         if ($html === []) {
@@ -566,6 +589,139 @@ final class Renderer
                 ['style' => sprintf('--smartlink-gallery-columns:%d;--smartlink-gallery-gap:%dpx;', $columns, $gap)]
             )),
             implode('', $html)
+        );
+    }
+
+    /**
+     * @param   array<string, mixed>              $payload
+     * @param   array<int, array<string, mixed>>  $items
+     */
+    private function buildGalleryViewer(array $payload, array $items, bool $withStrip): string
+    {
+        if ($items === []) {
+            return '';
+        }
+
+        $encodedItems = (string) json_encode($items, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $first = $items[0];
+        $stage = $this->galleryItemMarkup($payload, $first, true);
+        $strip = '';
+
+        if ($withStrip) {
+            $buttons = [];
+
+            foreach ($items as $index => $item) {
+                $buttons[] = sprintf(
+                    '<button type="button" class="smartlink-gallery__thumb%s" data-gallery-index="%d" aria-label="%s">%s</button>',
+                    $index === 0 ? ' is-active' : '',
+                    $index,
+                    htmlspecialchars((string) ($item['display_name'] ?? ''), ENT_COMPAT, 'UTF-8'),
+                    $this->galleryItemMarkup($payload, $item, false)
+                );
+            }
+
+            $strip = '<div class="smartlink-gallery__strip">' . implode('', $buttons) . '</div>';
+        }
+
+        $body = '<button type="button" class="smartlink-gallery__previous" data-gallery-previous aria-label="Previous">&#8249;</button>'
+            . '<div class="smartlink-gallery__stage" data-gallery-stage>' . $stage . '</div>'
+            . '<button type="button" class="smartlink-gallery__next" data-gallery-next aria-label="Next">&#8250;</button>'
+            . $strip;
+
+        return sprintf(
+            '<div %s>%s</div>',
+            $this->stringifyAttributes($this->buildViewContainerAttributes(
+                $payload,
+                ['smartlink-view', 'smartlink-gallery', 'smartlink-gallery--viewer'],
+                ['data-smartlink-gallery' => '1', 'data-gallery-items' => $encodedItems]
+            )),
+            $body
+        );
+    }
+
+    /**
+     * @param   array<string, mixed>  $payload
+     * @param   array<string, mixed>  $item
+     */
+    private function galleryItemMarkup(array $payload, array $item, bool $full): string
+    {
+        $src = $this->normaliseMediaHref((string) ($item['src'] ?? ''));
+        $poster = $this->normaliseMediaHref((string) ($item['poster'] ?? ''));
+        $label = htmlspecialchars((string) ($item['display_name'] ?? ''), ENT_COMPAT, 'UTF-8');
+        $media = \is_array($item['media'] ?? null) ? $item['media'] : [];
+
+        if (($item['type'] ?? 'image') === 'video') {
+            if (!$full && $poster !== '') {
+                return '<img src="' . htmlspecialchars($poster, ENT_COMPAT, 'UTF-8') . '" alt="' . $label . '" loading="lazy">';
+            }
+
+            if (($media['type'] ?? '') === 'provider_video' && !empty($media['embed_url'])) {
+                return '<iframe src="' . htmlspecialchars((string) $media['embed_url'], ENT_COMPAT, 'UTF-8')
+                    . '" allowfullscreen title="' . $label . '"></iframe>';
+            }
+
+            return '<video src="' . htmlspecialchars($src, ENT_COMPAT, 'UTF-8') . '"'
+                . ($poster !== '' ? ' poster="' . htmlspecialchars($poster, ENT_COMPAT, 'UTF-8') . '"' : '')
+                . ' controls aria-label="' . $label . '"></video>';
+        }
+
+        return '<img src="' . htmlspecialchars($src, ENT_COMPAT, 'UTF-8') . '" alt="' . $label . '" loading="lazy">';
+    }
+
+    /**
+     * @param   array<string, mixed>  $payload
+     * @param   array<string, mixed>  $resolved
+     */
+    private function buildVideoViewer(array $payload, array $resolved): string
+    {
+        $media = \is_array($resolved['media'] ?? null) ? $resolved['media'] : [];
+        $src = trim((string) (($media['embed_url'] ?? '') ?: ($media['src'] ?? '')));
+
+        if ($src === '') {
+            return '';
+        }
+
+        if (($media['type'] ?? '') === 'provider_video') {
+            $options = (array) ($payload['video'] ?? []);
+            $query = ($media['provider'] ?? '') === 'youtube'
+                ? [
+                    'controls' => !empty($options['controls']) ? '1' : '0',
+                    'autoplay' => !empty($options['autoplay']) ? '1' : '0',
+                    'loop' => !empty($options['loop']) ? '1' : '0',
+                    'mute' => !empty($options['muted']) ? '1' : '0',
+                ]
+                : [
+                    'autoplay' => !empty($options['autoplay']) ? '1' : '0',
+                    'loop' => !empty($options['loop']) ? '1' : '0',
+                    'muted' => !empty($options['muted']) ? '1' : '0',
+                ];
+            $src .= (str_contains($src, '?') ? '&' : '?') . http_build_query($query);
+            $embed = '<div class="smartlink-video"><iframe src="'
+                . htmlspecialchars($src, ENT_COMPAT, 'UTF-8')
+                . '" allowfullscreen title="'
+                . htmlspecialchars((string) ($resolved['display_name'] ?? 'Video'), ENT_COMPAT, 'UTF-8')
+                . '"></iframe></div>';
+
+            return $this->applyToggleViewAttributes($embed, $payload);
+        }
+
+        $options = (array) ($payload['video'] ?? []);
+        $sourceAttribute = $this->shouldDeferViewMedia($payload) ? 'data-src' : 'src';
+        $attributes = [$sourceAttribute . '="' . htmlspecialchars($src, ENT_COMPAT, 'UTF-8') . '"'];
+
+        foreach (['controls', 'autoplay', 'loop', 'muted'] as $attribute) {
+            if (!empty($options[$attribute])) {
+                $attributes[] = $attribute;
+            }
+        }
+
+        if (!empty($options['poster'])) {
+            $attributes[] = 'poster="' . htmlspecialchars((string) $options['poster'], ENT_COMPAT, 'UTF-8') . '"';
+        }
+
+        return $this->applyToggleViewAttributes(
+            '<div class="smartlink-video"><video ' . implode(' ', $attributes) . '></video></div>',
+            $payload
         );
     }
 
@@ -715,136 +871,34 @@ final class Renderer
 
     /**
      * @param   array<string, mixed>  $payload
+     */
+    private function primaryText(array $payload): string
+    {
+        return trim((string) ($payload['label'] ?? ''));
+    }
+
+    /**
      * @param   array<string, mixed>  $resolved
      */
-    private function primaryText(array $payload, array $resolved): string
+    private function summaryText(array $resolved): string
     {
-        $text = trim((string) ($payload['label'] ?? ''));
-
-        if ($text !== '') {
-            return $text;
-        }
-
-        $text = trim((string) ($payload['selection_label'] ?? ''));
-
-        if ($text !== '') {
-            return $text;
-        }
-
-        $text = trim((string) ($resolved['title'] ?? $resolved['label'] ?? ''));
-
-        if ($text !== '') {
-            return $text;
-        }
-
-        $friendlyValue = $this->friendlyValueText($payload);
-
-        if ($friendlyValue !== '') {
-            return $friendlyValue;
-        }
-
-        $href = (string) ($resolved['href'] ?? $payload['value'] ?? '');
-        $path = (string) parse_url($href, PHP_URL_PATH);
-
-        return basename($path !== '' ? $path : $href) ?: 'Open';
+        return trim((string) ($resolved['summary'] ?? ''));
     }
 
     /**
      * @param   array<string, mixed>  $payload
      */
-    private function friendlyValueText(array $payload): string
+    private function imageSource(array $payload): string
     {
-        $value = trim((string) ($payload['value'] ?? ''));
-
-        return match ((string) ($payload['kind'] ?? '')) {
-            'external_url' => preg_replace('/^https?:\/\//i', '', $value) ?: '',
-            'anchor' => ltrim($value, '#'),
-            'email' => preg_replace('/^mailto:/i', '', $value) ?: '',
-            'phone' => preg_replace('/^tel:/i', '', $value) ?: '',
-            default => $value,
-        };
+        return $this->normaliseMediaHref((string) ($payload['image_override'] ?? ''));
     }
 
     /**
      * @param   array<string, mixed>  $payload
-     * @param   array<string, mixed>  $resolved
      */
-    private function summaryText(array $payload, array $resolved): string
+    private function imageAlt(array $payload): string
     {
-        return trim((string) ($resolved['summary'] ?? $payload['selection_summary'] ?? ''));
-    }
-
-    /**
-     * @param   array<string, mixed>  $payload
-     * @param   array<string, mixed>  $resolved
-     */
-    private function imageSource(array $payload, array $resolved): string
-    {
-        $kind = (string) ($payload['kind'] ?? '');
-        $override = trim((string) ($payload['image_override'] ?? ''));
-
-        if ($override !== '') {
-            return $this->normaliseMediaHref($override);
-        }
-
-        if ($kind === 'image') {
-            return $this->normaliseMediaHref((string) ($resolved['href'] ?? $payload['value'] ?? ''));
-        }
-
-        if ($kind === 'video') {
-            return $this->normaliseMediaHref((string) (($payload['video']['poster'] ?? '') ?: ($payload['preview_image'] ?? '')));
-        }
-
-        if ($kind === 'gallery') {
-            $first = \is_array($payload['value'] ?? null) ? ($payload['value'][0] ?? null) : null;
-
-            if (\is_array($first)) {
-                return $this->normaliseMediaHref((string) (($first['poster'] ?? '') ?: ($first['src'] ?? '')));
-            }
-        }
-
-        if (!empty($resolved['image'])) {
-            return $this->normaliseMediaHref((string) $resolved['image']);
-        }
-
-        if (!empty($payload['selection_image'])) {
-            return $this->normaliseMediaHref((string) $payload['selection_image']);
-        }
-
-        return $this->normaliseMediaHref((string) ($payload['preview_image'] ?? ''));
-    }
-
-    /**
-     * @param   array<string, mixed>  $payload
-     * @param   array<string, mixed>  $resolved
-     */
-    private function imageAlt(array $payload, array $resolved): string
-    {
-        return trim((string) (($payload['preview_alt'] ?? '') ?: ($resolved['image_alt'] ?? '') ?: ($payload['selection_image_alt'] ?? '') ?: $this->primaryText($payload, $resolved)));
-    }
-
-    /**
-     * @return array{mode:string,emptyClass:string,position_raw:string,ratio_raw:string,fit_raw:string,size_raw:string,position:string,ratio:string,fit:string,size:string}
-     */
-    private function thumbnailDefaults(): array
-    {
-        $positionRaw = $this->normaliseConfiguredThumbnailPosition((string) ($this->context['thumbnail_position'] ?? 'inline'));
-        $ratioRaw = $this->normaliseConfiguredThumbnailRatio((string) ($this->context['thumbnail_ratio'] ?? 'auto'));
-        $fitRaw = $this->normaliseConfiguredThumbnailFit((string) ($this->context['thumbnail_fit'] ?? 'cover'));
-        $sizeRaw = $this->normaliseConfiguredThumbnailSize((string) ($this->context['thumbnail_size'] ?? 'md'));
-
-        return [
-            'mode' => $this->normaliseThumbnailEmptyMode((string) ($this->context['thumbnail_empty_mode'] ?? 'generic')),
-            'emptyClass' => $this->normaliseConfiguredThumbnailEmptyClass((string) ($this->context['thumbnail_empty_class'] ?? 'smartlink-image-empty')),
-            'position_raw' => $positionRaw,
-            'ratio_raw' => $ratioRaw,
-            'fit_raw' => $fitRaw,
-            'size_raw' => $sizeRaw,
-            'position' => $positionRaw === 'inherit' ? 'inline' : $positionRaw,
-            'ratio' => $ratioRaw === 'inherit' ? 'auto' : $ratioRaw,
-            'fit' => $fitRaw === 'inherit' ? 'cover' : $fitRaw,
-            'size' => $sizeRaw === 'inherit' ? 'md' : $sizeRaw,
-        ];
+        return trim((string) ($payload['preview_alt'] ?? ''));
     }
 
     /**
@@ -854,32 +908,23 @@ final class Renderer
      */
     private function effectiveThumbnailSettings(array $payload): array
     {
-        $defaults = $this->thumbnailDefaults();
-        $allowSpecificOverride = $defaults['mode'] === 'specific';
-        $positionOverride = $this->normaliseOptionalThumbnailPosition((string) ($payload['thumbnail_position'] ?? ''));
-        $ratioOverride = $this->normaliseOptionalThumbnailRatio((string) ($payload['thumbnail_ratio'] ?? ''));
-        $fitOverride = $this->normaliseOptionalThumbnailFit((string) ($payload['thumbnail_fit'] ?? ''));
-        $sizeOverride = $this->normaliseOptionalThumbnailSize((string) ($payload['thumbnail_size'] ?? ''));
-        $override = $this->normaliseBoolean($payload['thumbnail_override'] ?? false, false)
-            || $positionOverride !== ''
-            || $ratioOverride !== ''
-            || $fitOverride !== ''
-            || $sizeOverride !== '';
+        $position = $this->normaliseThumbnailPosition((string) ($payload['thumbnail_position'] ?? 'inline'));
+        $ratio = $this->normaliseThumbnailRatio((string) ($payload['thumbnail_ratio'] ?? 'auto'));
+        $fit = $this->normaliseThumbnailFit((string) ($payload['thumbnail_fit'] ?? 'cover'));
+        $size = $this->normaliseThumbnailSize((string) ($payload['thumbnail_size'] ?? 'md'));
 
         return [
-            'mode' => $defaults['mode'],
-            'emptyClass' => $allowSpecificOverride
-                ? $this->normaliseConfiguredThumbnailEmptyClass((string) ($payload['thumbnail_empty_class'] ?? $defaults['emptyClass']))
-                : $defaults['emptyClass'],
-            'override' => $override,
-            'position' => $override ? ($positionOverride !== '' ? $positionOverride : 'inline') : $defaults['position'],
-            'ratio' => $override ? ($ratioOverride !== '' ? $ratioOverride : 'auto') : $defaults['ratio'],
-            'fit' => $override ? ($fitOverride !== '' ? $fitOverride : 'cover') : $defaults['fit'],
-            'size' => $override ? ($sizeOverride !== '' ? $sizeOverride : 'md') : $defaults['size'],
-            'emitPosition' => $override ? $positionOverride !== '' : $defaults['position'] !== 'inline',
-            'emitRatio' => $override ? $ratioOverride !== '' : $defaults['ratio'] !== 'auto',
-            'emitFit' => $override ? $fitOverride !== '' : $defaults['fit'] !== 'cover',
-            'emitSize' => $override ? $sizeOverride !== '' : $defaults['size'] !== 'md',
+            'mode' => $this->normaliseThumbnailEmptyMode((string) ($payload['thumbnail_empty_mode'] ?? 'generic')),
+            'emptyClass' => $this->normaliseConfiguredThumbnailEmptyClass((string) ($payload['thumbnail_empty_class'] ?? 'smartlink-image-empty')),
+            'override' => false,
+            'position' => $position,
+            'ratio' => $ratio,
+            'fit' => $fit,
+            'size' => $size,
+            'emitPosition' => $position !== 'inline',
+            'emitRatio' => $ratio !== 'auto',
+            'emitFit' => $fit !== 'cover',
+            'emitSize' => $size !== 'md',
         ];
     }
 
@@ -940,62 +985,6 @@ final class Renderer
         $value = trim($value);
 
         return \in_array($value, ['sm', 'md', 'lg'], true) ? $value : 'md';
-    }
-
-    private function normaliseOptionalThumbnailRatio(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? '' : $this->normaliseThumbnailRatio($value);
-    }
-
-    private function normaliseOptionalThumbnailFit(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? '' : $this->normaliseThumbnailFit($value);
-    }
-
-    private function normaliseOptionalThumbnailPosition(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? '' : $this->normaliseThumbnailPosition($value);
-    }
-
-    private function normaliseOptionalThumbnailSize(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? '' : $this->normaliseThumbnailSize($value);
-    }
-
-    private function normaliseConfiguredThumbnailRatio(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? 'inherit' : $this->normaliseThumbnailRatio($value);
-    }
-
-    private function normaliseConfiguredThumbnailFit(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? 'inherit' : $this->normaliseThumbnailFit($value);
-    }
-
-    private function normaliseConfiguredThumbnailPosition(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? 'inherit' : $this->normaliseThumbnailPosition($value);
-    }
-
-    private function normaliseConfiguredThumbnailSize(string $value): string
-    {
-        $value = trim($value);
-
-        return $value === '' || $value === 'inherit' ? 'inherit' : $this->normaliseThumbnailSize($value);
     }
 
     /**
@@ -1100,29 +1089,6 @@ final class Renderer
         $raw = (string) ($this->thumbnailClassMappings()[$group][$value] ?? '');
 
         return array_values(array_filter(preg_split('/\s+/', trim($raw)) ?: []));
-    }
-
-    private function kindTypeLabel(string $kind): string
-    {
-        return match ($kind) {
-            'external_url' => 'External Link',
-            'relative_url' => 'Relative Link',
-            'anchor' => 'Anchor',
-            'email' => 'Email',
-            'phone' => 'Phone',
-            'com_content_article' => 'Article',
-            'com_content_category' => 'Category',
-            'menu_item' => 'Menu Item',
-            'com_tags_tag' => 'Tags',
-            'com_contact_contact' => 'Contact',
-            'user_profile' => 'User Profile',
-            'advanced_route' => 'Joomla Path',
-            'media_file' => 'Media File',
-            'image' => 'Image',
-            'video' => 'Video',
-            'gallery' => 'Gallery',
-            default => 'Item',
-        };
     }
 
     private function normaliseMediaHref(string $value): string

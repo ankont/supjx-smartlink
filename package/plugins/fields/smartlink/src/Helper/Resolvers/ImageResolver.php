@@ -18,14 +18,8 @@ final class ImageResolver extends AbstractResolver
     public function resolve(array $payload): array
     {
         $src = $this->asMediaUrl((string) ($payload['value'] ?? ''));
-        $alt = (string) ($payload['preview_alt'] ?: $payload['label'] ?: '');
-        $embed = sprintf(
-            '<figure class="smartlink-image"><img src="%s" alt="%s" loading="lazy"></figure>',
-            $this->escape($src),
-            $this->escape($alt)
-        );
+        $alt = (string) ($payload['selection_image_alt'] ?? '');
 
-        return $this->buildResult($payload, $src, ['embed' => $embed, 'label' => $payload['label'] ?: basename($src)]);
+        return $this->buildResult($payload, $src, ['label' => basename($src), 'image' => $src, 'image_alt' => $alt]);
     }
 }
-

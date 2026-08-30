@@ -25,6 +25,13 @@ class SmartlinkField extends FormField
         $config = $this->getFieldConfig();
         $value = (string) $this->value;
 
+        if ($value !== '') {
+            try {
+                $value = Schema::encodeBuilderPayload(Schema::sanitizePayload($value, $config));
+            } catch (\Throwable $error) {
+            }
+        }
+
         $this->loadAssets();
 
         $encodedConfig = htmlspecialchars(
@@ -104,7 +111,10 @@ HTML;
             'author_feature_preview' => (string) ($this->element['author_feature_preview'] ?? ''),
             'author_feature_behavior' => (string) ($this->element['author_feature_behavior'] ?? ''),
             'author_feature_download' => (string) ($this->element['author_feature_download'] ?? ''),
-            'author_feature_content' => (string) ($this->element['author_feature_content'] ?? ''),
+            'author_feature_show_thumbnail' => (string) ($this->element['author_feature_show_thumbnail'] ?? ''),
+            'author_feature_show_icon' => (string) ($this->element['author_feature_show_icon'] ?? ''),
+            'author_feature_show_text' => (string) ($this->element['author_feature_show_text'] ?? ''),
+            'author_feature_view_on_page' => (string) ($this->element['author_feature_view_on_page'] ?? ''),
             'author_feature_label' => (string) ($this->element['author_feature_label'] ?? ''),
             'author_feature_image_override' => (string) ($this->element['author_feature_image_override'] ?? ''),
             'author_feature_attributes' => (string) ($this->element['author_feature_attributes'] ?? ''),
@@ -117,12 +127,13 @@ HTML;
             'allowed_actions' => (string) ($this->element['allowed_actions'] ?? ''),
             'default_kind' => (string) ($this->element['default_kind'] ?? ''),
             'default_action' => (string) ($this->element['default_action'] ?? ''),
+            'default_text' => (string) ($this->element['default_text'] ?? ''),
             'validation_profile' => (string) ($this->element['validation_profile'] ?? ''),
             'allow_external_media' => (string) ($this->element['allow_external_media'] ?? ''),
             'max_gallery_items' => (string) ($this->element['max_gallery_items'] ?? ''),
             'icon_stylesheet_url' => (string) ($this->element['icon_stylesheet_url'] ?? ''),
             'html_output_mode' => (string) ($this->element['html_output_mode'] ?? ''),
-            'asset_version' => '1.14.2',
+            'asset_version' => '2.0.0',
             'use_smartlink_styles' => (string) ($this->element['use_smartlink_styles'] ?? ''),
             'link_button_class' => (string) ($this->element['link_button_class'] ?? ''),
             'thumbnail_empty_mode' => (string) ($this->element['thumbnail_empty_mode'] ?? ''),
@@ -148,7 +159,7 @@ HTML;
             'thumbnail_size_class_sm' => (string) ($this->element['thumbnail_size_class_sm'] ?? ''),
             'thumbnail_size_class_md' => (string) ($this->element['thumbnail_size_class_md'] ?? ''),
             'thumbnail_size_class_lg' => (string) ($this->element['thumbnail_size_class_lg'] ?? ''),
-            'template_name' => (string) ($this->element['template_name'] ?? ''),
+            'server_preview' => true,
             'ui_strings' => $this->getUiStrings(),
         ];
 
@@ -318,7 +329,6 @@ HTML;
             'field_trigger' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_TRIGGER'),
             'field_count' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_COUNT'),
             'field_items' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_ITEMS'),
-            'field_rows' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_ROWS'),
             'field_columns' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_COLUMNS'),
             'field_gap' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_GAP'),
             'field_how_items_fit' => Text::_('PLG_FIELDS_SMARTLINK_UI_FIELD_GALLERY_FIT'),
