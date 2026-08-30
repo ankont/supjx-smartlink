@@ -133,7 +133,7 @@ HTML;
             'max_gallery_items' => (string) ($this->element['max_gallery_items'] ?? ''),
             'icon_stylesheet_url' => (string) ($this->element['icon_stylesheet_url'] ?? ''),
             'html_output_mode' => (string) ($this->element['html_output_mode'] ?? ''),
-            'asset_version' => '2.0.0',
+            'asset_version' => '2.0.1',
             'use_smartlink_styles' => (string) ($this->element['use_smartlink_styles'] ?? ''),
             'link_button_class' => (string) ($this->element['link_button_class'] ?? ''),
             'thumbnail_empty_mode' => (string) ($this->element['thumbnail_empty_mode'] ?? ''),

@@ -19,7 +19,10 @@ final class MediaFileResolver extends AbstractResolver
     {
         $href = $this->asMediaUrl((string) ($payload['value'] ?? ''));
 
-        return $this->buildResult($payload, $href, ['label' => $payload['label'] ?: basename($href)]);
+        return $this->buildResult($payload, $href, [
+            'label' => $payload['label'] ?: basename($href),
+            'is_file' => true,
+            'downloadable' => true,
+        ]);
     }
 }
-

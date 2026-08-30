@@ -8,7 +8,7 @@
   <authorEmail>an_kont@yahoo.gr</authorEmail>
   <authorUrl>https://superor.wordpress.com</authorUrl>
   <element>smartlinkassets</element>
-  <version>2.0.0</version>
+  <version>2.0.1</version>
   <description>Loads SmartLink frontend assets for article-body markup when built-in SmartLink styles are enabled.</description>
   <namespace path="src">SuperSoft\Plugin\System\Smartlinkassets</namespace>
   <files>

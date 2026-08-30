@@ -3,6 +3,7 @@
 require __DIR__ . '/bootstrap.php';
 
 use SuperSoft\Plugin\Fields\Smartlink\Contract\ContractFactory;
+use SuperSoft\Plugin\Fields\Smartlink\Contract\MediaCapabilityResolver;
 use SuperSoft\Plugin\Fields\Smartlink\Contract\TextResolver;
 use SuperSoft\Plugin\Fields\Smartlink\Helper\Renderer;
 use SuperSoft\Plugin\Fields\Smartlink\Helper\ResolverInterface;
@@ -166,6 +167,45 @@ test('contract levels have distinct responsibilities', static function (): void 
     assertTrueValue(!array_key_exists('href', $contract['presentation']), 'Presentation state must not duplicate resolved targets.');
 });
 
+test('resolved contract exposes normalized direct-file capabilities', static function (): void {
+    $registry = new TargetRegistry();
+    $registry->register(new class implements ResolverInterface {
+        public function getKind(): string
+        {
+            return 'external_url';
+        }
+
+        public function resolve(array $payload): array
+        {
+            return ['href' => 'https://cdn.example.com/guides/guide.PDF?revision=4'];
+        }
+    });
+    $contract = (new ContractFactory($registry))->create(
+        Schema::sanitizePayload(basePayload(['value' => 'https://cdn.example.com/guides/guide.PDF?revision=4']), Schema::fieldConfigFromParams([])),
+        Schema::fieldConfigFromParams([])
+    );
+
+    assertSameValue('application/pdf', $contract['resolved']['mime_type']);
+    assertSameValue('pdf', $contract['resolved']['extension']);
+    assertSameValue(true, $contract['resolved']['is_file']);
+    assertSameValue(true, $contract['resolved']['downloadable']);
+    assertTrueValue(!array_key_exists('is_pdf', $contract['resolved']), 'Format-specific capability flags must not be added.');
+});
+
+test('resolver-provided capability facts take precedence over extension fallback', static function (): void {
+    $capabilities = (new MediaCapabilityResolver())->resolve('media_file', 'files/archive.bin', [
+        'mime_type' => 'application/vnd.example.package; charset=binary',
+        'extension' => '.pkg',
+        'is_file' => true,
+        'downloadable' => false,
+    ]);
+
+    assertSameValue('application/vnd.example.package', $capabilities['mime_type']);
+    assertSameValue('pkg', $capabilities['extension']);
+    assertSameValue(true, $capabilities['is_file']);
+    assertSameValue(false, $capabilities['downloadable']);
+});
+
 test('effective thumbnail state resolves inherit to concrete system defaults', static function (): void {
     $registry = new TargetRegistry();
     $registry->register(new class implements ResolverInterface {
@@ -241,6 +281,11 @@ test('gallery items expose structured provider media facts', static function ():
                     'label' => 'Example video',
                     'poster' => '',
                     'source_type' => 'provider',
+                ], [
+                    'type' => 'image',
+                    'src' => 'https://cdn.example.com/example.webp',
+                    'label' => 'Example image',
+                    'source_type' => 'external',
                 ]],
             ];
         }
@@ -248,7 +293,10 @@ test('gallery items expose structured provider media facts', static function ():
     $config = Schema::fieldConfigFromParams(['allowed_kinds' => ['gallery'], 'default_kind' => 'gallery']);
     $payload = Schema::sanitizePayload([
         'kind' => 'gallery',
-        'value' => [['type' => 'video', 'src' => 'https://youtu.be/example', 'source_type' => 'provider']],
+        'value' => [
+            ['type' => 'video', 'src' => 'https://youtu.be/example', 'source_type' => 'provider'],
+            ['type' => 'image', 'src' => 'https://cdn.example.com/example.webp', 'source_type' => 'external'],
+        ],
         'action' => 'no_action',
         'show_image' => false,
         'show_icon' => false,
@@ -259,6 +307,18 @@ test('gallery items expose structured provider media facts', static function ():
 
     assertSameValue('provider_video', $contract['resolved']['items'][0]['media']['type']);
     assertSameValue('https://www.youtube.com/embed/example', $contract['resolved']['items'][0]['media']['embed_url']);
+    assertSameValue('', $contract['resolved']['items'][0]['mime_type']);
+    assertSameValue('', $contract['resolved']['items'][0]['extension']);
+    assertSameValue(false, $contract['resolved']['items'][0]['is_file']);
+    assertSameValue(false, $contract['resolved']['items'][0]['downloadable']);
+    assertSameValue('image/webp', $contract['resolved']['items'][1]['mime_type']);
+    assertSameValue('webp', $contract['resolved']['items'][1]['extension']);
+    assertSameValue(true, $contract['resolved']['items'][1]['is_file']);
+    assertSameValue(true, $contract['resolved']['items'][1]['downloadable']);
+    assertSameValue('', $contract['resolved']['mime_type']);
+    assertSameValue('', $contract['resolved']['extension']);
+    assertSameValue(false, $contract['resolved']['is_file']);
+    assertSameValue(false, $contract['resolved']['downloadable']);
 });
 
 test('gallery renderer does not create nested SmartLink actions', static function (): void {

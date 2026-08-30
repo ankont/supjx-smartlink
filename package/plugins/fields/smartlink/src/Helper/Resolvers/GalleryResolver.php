@@ -33,12 +33,17 @@ final class GalleryResolver extends AbstractResolver
             }
 
             $type = (string) ($item['type'] ?? 'image');
+            $sourceType = trim((string) ($item['source_type'] ?? ''));
+            $provider = $type === 'video' && $sourceType === 'provider';
             $resolvedItems[] = [
                 'type' => $type === 'video' ? 'video' : 'image',
                 'src' => $src,
                 'label' => trim((string) ($item['label'] ?? '')),
                 'poster' => $type === 'video' ? $this->asMediaUrl((string) ($item['poster'] ?? '')) : '',
-                'source_type' => trim((string) ($item['source_type'] ?? '')),
+                'source_type' => $sourceType,
+                'capability_source' => (string) ($item['src'] ?? ''),
+                'is_file' => !$provider,
+                'downloadable' => !$provider,
             ];
         }
 

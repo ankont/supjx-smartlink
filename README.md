@@ -146,7 +146,7 @@ $showImage = $smartlink['presentation']['show_image'];
 The contract has three non-overlapping levels:
 
 - `payload`: canonical stored intent only (`target`, fallback `snapshot`, explicit `overrides`)
-- `resolved`: live target/content facts (`href`, `title`, `display_name`, `summary`, `image`, `media`, `items`)
+- `resolved`: live target/content facts (`href`, `title`, `display_name`, `summary`, `image`, `media`, `items`) plus authoritative file capabilities (`mime_type`, `extension`, `is_file`, `downloadable`)
 - `presentation`: final effective behavior and presentation after field defaults and author overrides are merged
 
 Custom templates should trust `resolved` for target facts and `presentation` for rendering decisions. They do not need to know whether an effective value came from a field default or an author override.
@@ -160,6 +160,8 @@ Visible text uses one shared precedence chain:
 Supported field-default variables are `{filename}`, `{full_filename}`, `{bare_filename}`, `{selection_label}`, `{resolved_title}`, and `{type}`. The HTML `title` attribute remains separate as `presentation.html_title`.
 
 Gallery is a standalone resolved asset. Its items contain media facts and navigation metadata only, never nested SmartLink actions. `presentation.gallery.mode` selects `grid`, `viewer`, or `viewer_with_strip`; grid rows are derived from item count and `columns`.
+
+File capability facts also exist on every resolved gallery item. A gallery collection itself is not a file; direct image/video/file items are downloadable, while provider pages such as YouTube or Vimeo are not. Templates should branch on MIME/type and these capabilities rather than guess from filenames or introduce format-specific flags such as `is_pdf`.
 
 The authoring Preview first uses the generic renderer and then requests the same server-side contract. A site can customize it by creating:
 

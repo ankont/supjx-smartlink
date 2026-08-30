@@ -12,6 +12,10 @@ use Joomla\CMS\Language\Text;
 
 final class ResolvedTargetNormalizer
 {
+    public function __construct(private readonly MediaCapabilityResolver $capabilityResolver = new MediaCapabilityResolver())
+    {
+    }
+
     /**
      * @param   array<string, mixed>  $payload
      * @param   array<string, mixed>  $raw
@@ -37,6 +41,11 @@ final class ResolvedTargetNormalizer
         $image = trim((string) ($raw['image'] ?? $payload['selection_image'] ?? ''));
         $imageAlt = trim((string) ($raw['image_alt'] ?? $payload['selection_image_alt'] ?? ''));
         $media = $this->mediaDescriptor($kind, $payload, $href);
+        $capabilities = $this->capabilityResolver->resolve(
+            $kind,
+            \is_scalar($payload['value'] ?? null) ? (string) $payload['value'] : $href,
+            array_merge($raw, ['source_type' => (string) ($payload['source_type'] ?? ($raw['source_type'] ?? ''))])
+        );
 
         if ($kind === 'image' && $image === '') {
             $image = $href;
@@ -59,6 +68,7 @@ final class ResolvedTargetNormalizer
             'image_alt' => $imageAlt,
             'media' => $media,
             'items' => $items,
+            ...$capabilities,
             'attributes' => \is_array($raw['attributes'] ?? null) ? $raw['attributes'] : [],
         ];
     }
@@ -121,13 +131,20 @@ final class ResolvedTargetNormalizer
             $displayName = trim((string) (($item['display_name'] ?? '') ?: ($item['label'] ?? '')));
             $path = (string) (parse_url($src, PHP_URL_PATH) ?: $src);
             $poster = $type === 'video' ? trim((string) ($item['poster'] ?? '')) : '';
+            $sourceType = trim((string) ($item['source_type'] ?? ''));
+            $capabilities = $this->capabilityResolver->resolve(
+                $type,
+                (string) ($item['capability_source'] ?? $src),
+                array_merge($item, ['source_type' => $sourceType])
+            );
 
             $normalised[] = [
                 'type' => $type,
                 'src' => $src,
                 'display_name' => $displayName !== '' ? $displayName : basename(str_replace('\\', '/', $path)),
                 'poster' => $poster,
-                'source_type' => trim((string) ($item['source_type'] ?? '')),
+                'source_type' => $sourceType,
+                ...$capabilities,
                 'media' => $type === 'video'
                     ? $this->videoDescriptor($src, $poster)
                     : ['type' => 'image', 'src' => $src],

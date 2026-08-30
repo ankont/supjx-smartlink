@@ -6,6 +6,15 @@ The format is based loosely on Keep a Changelog.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-08-30
+
+### Added
+- Added normalized `mime_type`, `extension`, `is_file`, and `downloadable` facts to resolved targets and gallery items.
+- Added centralized media capability resolution with resolver hints, local file MIME inspection, and a standard extension-to-MIME fallback for direct file URLs.
+
+### Changed
+- Direct media resolvers now explicitly distinguish downloadable files from provider pages; templates no longer need extension guessing or format-specific booleans.
+
 ## [2.0.0] - 2026-08-30
 
 ### Added

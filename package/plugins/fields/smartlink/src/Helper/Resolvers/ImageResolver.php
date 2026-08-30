@@ -20,6 +20,12 @@ final class ImageResolver extends AbstractResolver
         $src = $this->asMediaUrl((string) ($payload['value'] ?? ''));
         $alt = (string) ($payload['selection_image_alt'] ?? '');
 
-        return $this->buildResult($payload, $src, ['label' => basename($src), 'image' => $src, 'image_alt' => $alt]);
+        return $this->buildResult($payload, $src, [
+            'label' => basename($src),
+            'image' => $src,
+            'image_alt' => $alt,
+            'is_file' => true,
+            'downloadable' => true,
+        ]);
     }
 }
