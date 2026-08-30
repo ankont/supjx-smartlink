@@ -154,7 +154,7 @@ final class Insert
             'max_gallery_items' => 12,
             'icon_stylesheet_url' => $iconStylesheetUrl,
             'html_output_mode' => \in_array($htmlOutputMode, ['compact', 'pretty'], true) ? $htmlOutputMode : 'compact',
-            'asset_version' => '1.14.1',
+            'asset_version' => '1.14.2',
             'use_smartlink_styles' => $useSmartlinkStyles,
             'link_button_class' => $linkButtonClass,
             'thumbnail_empty_mode' => $thumbnailEmptyMode,

@@ -12,6 +12,7 @@
         layout="joomla.form.field.radio.buttons"
       >
         <option value="all">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_ALL</option>
+        <option value="template">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_TEMPLATE</option>
         <option value="none">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_NONE</option>
         <option value="custom">PLG_FIELDS_SMARTLINK_AUTHORING_PROFILE_CUSTOM</option>
       </field>

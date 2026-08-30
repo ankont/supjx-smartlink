@@ -2,4 +2,5 @@ build/output/
 build/stage/
 build/dist/
 build/tmp/
+build/_verify*/
 *.zip

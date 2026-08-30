@@ -216,9 +216,8 @@ final class Schema
         }
 
         $authoringProfile = (string) ($array['authoring_profile'] ?? 'all');
-        $authoringProfile = $authoringProfile === 'template' ? 'none' : $authoringProfile;
-        $array['authoring_profile'] = \in_array($authoringProfile, ['all', 'none', 'custom'], true) ? $authoringProfile : 'all';
-        $array['author_features'] = [];
+        $array['authoring_profile'] = \in_array($authoringProfile, ['all', 'template', 'none', 'custom'], true) ? $authoringProfile : 'all';
+        $array['author_features'] = $array['authoring_profile'] === 'template' ? ['preview'] : [];
 
         if ($array['authoring_profile'] === 'custom') {
             foreach (self::AUTHOR_FEATURES as $feature) {
