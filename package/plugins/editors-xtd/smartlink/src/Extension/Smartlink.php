@@ -8,6 +8,7 @@ namespace SuperSoft\Plugin\EditorsXtd\Smartlink\Extension;
 
 \defined('_JEXEC') or die;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Editor\Button\Button;
 use Joomla\CMS\Event\Editor\EditorButtonsSetupEvent;
 use Joomla\CMS\Factory;
@@ -30,10 +31,6 @@ final class Smartlink extends CMSPlugin implements SubscriberInterface
 
     public function onEditorButtonsSetup(EditorButtonsSetupEvent $event): void
     {
-        if (!Factory::getApplication()->isClient('administrator')) {
-            return;
-        }
-
         $registry = $event->getButtonsRegistry();
         $disabled = $event->getDisabledButtons();
 
@@ -78,6 +75,24 @@ final class Smartlink extends CMSPlugin implements SubscriberInterface
         $document->addStyleSheet($mediaBase . '/plg_fields_smartlink/smartlink-builder.css');
         $document->addScript($mediaBase . '/plg_fields_smartlink/pickers.js');
         $document->addScript($mediaBase . '/plg_fields_smartlink/smartlink-builder.js');
+
+        if (ComponentHelper::isEnabled('com_smartbrowser') && method_exists($document, 'getWebAssetManager')) {
+            try {
+                $assets = $document->getWebAssetManager();
+                $assets->getRegistry()->addExtensionRegistryFile('com_smartbrowser');
+                $assets->useStyle('com_smartbrowser.app');
+                $assets->useScript('com_smartbrowser.picker');
+
+                if (method_exists($document, 'addScriptOptions')) {
+                    $document->addScriptOptions('com_smartbrowser.picker', [
+                        'url' => rtrim(Uri::base(), '/') . '/index.php?option=com_smartbrowser&view=browser',
+                    ]);
+                }
+            } catch (\Throwable $error) {
+                // Keep SmartLink usable when the optional component installation is incomplete.
+            }
+        }
+
         $document->addCustomTag(
             '<script>window.SuperSoftSmartLinkEditorConfig = '
             . json_encode(Insert::defaultConfig($this->params), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)

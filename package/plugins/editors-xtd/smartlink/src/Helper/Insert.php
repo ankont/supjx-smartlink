@@ -8,8 +8,10 @@ namespace SuperSoft\Plugin\EditorsXtd\Smartlink\Helper;
 
 \defined('_JEXEC') or die;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Uri\Uri;
 use Joomla\Registry\Registry;
 
 final class Insert
@@ -121,6 +123,8 @@ final class Insert
         $thumbnailFit = $readString($params, 'thumbnail_fit', 'cover') ?: 'cover';
         $thumbnailSize = $readString($params, 'thumbnail_size', 'md') ?: 'md';
 
+        $application = Factory::getApplication();
+
         return [
             'allowed_kinds' => [
                 'external_url',
@@ -154,7 +158,10 @@ final class Insert
             'max_gallery_items' => 12,
             'icon_stylesheet_url' => $iconStylesheetUrl,
             'html_output_mode' => \in_array($htmlOutputMode, ['compact', 'pretty'], true) ? $htmlOutputMode : 'compact',
-            'asset_version' => '2.0.1',
+            'asset_version' => '2.1.0',
+            'application_client' => $application->isClient('administrator') ? 'administrator' : 'site',
+            'smartbrowser_available' => ComponentHelper::isEnabled('com_smartbrowser'),
+            'smartbrowser_url' => rtrim(Uri::base(), '/') . '/index.php?option=com_smartbrowser&view=browser',
             'use_smartlink_styles' => $useSmartlinkStyles,
             'link_button_class' => $linkButtonClass,
             'thumbnail_empty_mode' => $thumbnailEmptyMode,

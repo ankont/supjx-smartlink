@@ -6,6 +6,30 @@ The format is based loosely on Keep a Changelog.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-28
+
+### Added
+- Added optional SmartBrowser integration for Joomla content, menu, user, and media selection in both site and administrator authoring.
+
+### Changed
+- Kept SmartLink's gallery and tag selection management while using SmartBrowser as their resource browser.
+- Removed unavailable core picker buttons from frontend authoring when SmartBrowser is not installed.
+
+## [2.0.4] - 2026-09-04
+
+### Fixed
+- Added the active Joomla CSRF token to core picker requests so frontend modal proxies accept them.
+
+## [2.0.3] - 2026-09-04
+
+### Fixed
+- Made picker URLs application- and installation-root-aware, allowing Joomla's supported frontend modal proxies to retain the frontend user context.
+
+## [2.0.2] - 2026-09-04
+
+### Fixed
+- Enabled the SmartLink editor button in frontend editing forms instead of restricting registration to the Administrator application.
+
 ## [2.0.1] - 2026-08-30
 
 ### Added

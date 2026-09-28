@@ -5,6 +5,7 @@
     kind_tags: "Tags",
     kind_contact: "Contact",
     kind_menu_item: "Menu Item",
+    kind_user_profile: "User Profile",
     kind_media_file: "Media File",
     kind_image: "Image",
     kind_video: "Video",
@@ -52,6 +53,18 @@
     menu_item: "index.php?option=com_menus&view=items&layout=modal&tmpl=component"
   };
 
+  const smartBrowserKinds = {
+    com_content_article: { adapter: "articles", selectionTarget: "item", allowedResourceTypes: ["article"] },
+    com_content_category: { adapter: "categories", selectionTarget: "node", allowedResourceTypes: ["category"] },
+    com_tags_tag: { adapter: "tags", selectionTarget: "node", allowedResourceTypes: ["tag"], multiple: true },
+    menu_item: { adapter: "menus", selectionTarget: "node", allowedResourceTypes: ["menu-item"] },
+    user_profile: { adapter: "users", selectionTarget: "item", allowedResourceTypes: ["user"] },
+    media_file: { adapter: "media", selectionTarget: "item", allowedResourceTypes: ["image", "video", "audio", "document"] },
+    image: { adapter: "media", selectionTarget: "item", allowedResourceTypes: ["image"] },
+    video: { adapter: "media", selectionTarget: "item", allowedResourceTypes: ["video"] },
+    gallery: { adapter: "media", selectionTarget: "item", allowedResourceTypes: ["image", "video"], multiple: true }
+  };
+
   function isMediaKind(kind) {
     return ["media_file", "image", "video", "gallery"].includes(kind);
   }
@@ -69,12 +82,100 @@
     }
   }
 
-  function routeFor(kind) {
-    if (isMediaKind(kind)) {
-      return `index.php?option=com_media&view=media&tmpl=component&mediatypes=${encodeURIComponent(mediaTypes(kind))}&asset=com_content&author=0&path=`;
+  function applicationClient(options = {}) {
+    const configured = String(options.application_client || "").toLowerCase();
+
+    if (configured === "administrator" || configured === "site") {
+      return configured;
     }
 
-    return contentRoutes[kind] || "";
+    return /\/administrator(?:\/|$)/i.test(applicationBasePath()) ? "administrator" : "site";
+  }
+
+  function hasSmartBrowser(kind, options = {}) {
+    return Boolean(options.smartbrowser_available && smartBrowserKinds[kind]);
+  }
+
+  function smartBrowserPickerOptions(kind, options = {}) {
+    const definition = smartBrowserKinds[kind];
+
+    if (!definition) {
+      return null;
+    }
+
+    return {
+      ...definition,
+      url: String(options.smartbrowser_url || window.Joomla?.getOptions?.("com_smartbrowser.picker")?.url || "").trim()
+    };
+  }
+
+  function smartBrowserRoute(kind, options = {}) {
+    const pickerOptions = smartBrowserPickerOptions(kind, options);
+
+    if (!pickerOptions) {
+      return "";
+    }
+
+    const baseUrl = pickerOptions.url || `${applicationBasePath()}index.php?option=com_smartbrowser&view=browser`;
+    const url = new URL(baseUrl, window.location.href);
+    const values = {
+      view: "browser",
+      adapter: pickerOptions.adapter,
+      mode: "select",
+      multiple: pickerOptions.multiple ? "1" : "0",
+      selectionTarget: pickerOptions.selectionTarget,
+      allowedResourceTypes: pickerOptions.allowedResourceTypes.join(","),
+      tmpl: "component",
+      Itemid: "0"
+    };
+
+    Object.entries(values).forEach(([key, value]) => url.searchParams.set(key, value));
+
+    return url.toString();
+  }
+
+  function routeFor(kind, options = {}) {
+    if (hasSmartBrowser(kind, options)) {
+      return smartBrowserRoute(kind, options);
+    }
+
+    if (applicationClient(options) !== "administrator") {
+      return "";
+    }
+
+    const applicationIndex = `${applicationBasePath()}index.php`;
+
+    if (isMediaKind(kind)) {
+      return withRequestToken(`${applicationIndex}?option=com_media&view=media&tmpl=component&mediatypes=${encodeURIComponent(mediaTypes(kind))}&asset=com_content&author=0&path=`);
+    }
+
+    const route = contentRoutes[kind] || "";
+
+    return route ? withRequestToken(`${applicationBasePath()}${route}`) : "";
+  }
+
+  function isAvailable(kind, options = {}) {
+    if (hasSmartBrowser(kind, options)) {
+      return true;
+    }
+
+    if (kind === "gallery") {
+      return true;
+    }
+
+    return Boolean(routeFor(kind, options));
+  }
+
+  function withRequestToken(route) {
+    const token = String(window.Joomla?.getOptions?.("csrf.token") || "").trim();
+
+    if (!route || !token) {
+      return route;
+    }
+
+    const separator = route.includes("?") ? "&" : "?";
+
+    return `${route}${separator}${encodeURIComponent(token)}=1`;
   }
 
   function pickerTitle(kind, strings) {
@@ -89,6 +190,8 @@
         return ui(strings, "kind_contact");
       case "menu_item":
         return ui(strings, "kind_menu_item");
+      case "user_profile":
+        return ui(strings, "kind_user_profile");
       case "media_file":
         return ui(strings, "kind_media_file");
       case "image":
@@ -114,6 +217,8 @@
         return "fa-solid fa-address-book";
       case "menu_item":
         return "fa-solid fa-bars";
+      case "user_profile":
+        return "fa-solid fa-user";
       case "media_file":
         return "fa-regular fa-file-lines";
       case "image":
@@ -137,14 +242,59 @@
   }
 
   function siteBasePath() {
+    const systemPaths = window.Joomla?.getOptions?.("system.paths") || {};
+
+    if (Object.prototype.hasOwnProperty.call(systemPaths, "root")) {
+      const root = String(systemPaths.root || "").replace(/\/+$/, "");
+
+      return root ? `${root}/` : "/";
+    }
+
+    if (systemPaths.rootFull) {
+      try {
+        const rootUrl = new URL(String(systemPaths.rootFull), window.location.origin);
+        const root = rootUrl.pathname.replace(/\/+$/, "");
+
+        return root ? `${root}/` : "/";
+      } catch (error) {
+      }
+    }
+
     const baseUri = String(document.baseURI || window.location.href || "");
 
     try {
       const url = new URL(baseUri, window.location.origin);
-      return url.pathname.replace(/\/administrator\/.*$/i, "/");
+      const root = url.pathname.replace(/\/administrator(?:\/.*)?$/i, "").replace(/\/+$/, "");
+
+      return root ? `${root}/` : "/";
     } catch (error) {
       return "/";
     }
+  }
+
+  function applicationBasePath() {
+    const systemPaths = window.Joomla?.getOptions?.("system.paths") || {};
+
+    if (Object.prototype.hasOwnProperty.call(systemPaths, "base")) {
+      const base = String(systemPaths.base || "").replace(/\/+$/, "");
+
+      return base ? `${base}/` : "/";
+    }
+
+    if (systemPaths.baseFull) {
+      try {
+        const baseUrl = new URL(String(systemPaths.baseFull), window.location.origin);
+        const base = baseUrl.pathname.replace(/\/+$/, "");
+
+        return base ? `${base}/` : "/";
+      } catch (error) {
+      }
+    }
+
+    const pathname = String(window.location.pathname || "");
+    const administratorMatch = pathname.match(/^(.*\/administrator)(?:\/.*)?$/i);
+
+    return administratorMatch ? `${administratorMatch[1].replace(/\/+$/, "")}/` : siteBasePath();
   }
 
   function siteAbsoluteUrl(value) {
@@ -390,12 +540,14 @@
     const summary = String(data.summary || data.description || data.introtext || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     const image = normaliseJoomlaMediaValue(data.image || data.image_intro || data.thumb_image || "");
     const imageAlt = String(data.image_alt || data.image_intro_alt || title).trim();
+    const href = String(data.href || data.url || data.link || "").trim();
 
     switch (kind) {
       case "com_content_article":
       case "com_content_category":
       case "com_contact_contact":
       case "menu_item":
+      case "user_profile":
         if (!id) {
           return null;
         }
@@ -405,7 +557,8 @@
           label: title,
           summary,
           image,
-          image_alt: imageAlt
+          image_alt: imageAlt,
+          href
         };
       case "com_tags_tag":
         if (!id) {
@@ -417,11 +570,105 @@
           label: title,
           summary,
           image,
-          image_alt: imageAlt
+          image_alt: imageAlt,
+          href
         };
       default:
         return null;
     }
+  }
+
+  function smartBrowserResourceId(resource) {
+    const metadataId = resource?.metadata?.id;
+
+    if (metadataId !== undefined && metadataId !== null && String(metadataId).trim() !== "") {
+      return String(metadataId).trim();
+    }
+
+    return String(resource?.id || "").replace(/^[^:]+:/, "").trim();
+  }
+
+  function normaliseSmartBrowserResource(kind, resource) {
+    if (!resource || typeof resource !== "object") {
+      return null;
+    }
+
+    const metadata = resource.metadata && typeof resource.metadata === "object" ? resource.metadata : {};
+    const title = String(resource.title || metadata.title || "").trim();
+
+    if (isMediaKind(kind)) {
+      const providerPath = String(resource.id || metadata.id || "").trim();
+      const relativePath = mediaPathToRelative(providerPath);
+      const src = normaliseJoomlaMediaValue(relativePath || metadata.url || resource.url || "");
+      const type = String(resource.type || metadata.type || "").toLowerCase() === "video" ? "video" : "image";
+
+      if (!src) {
+        return null;
+      }
+
+      if (kind === "gallery") {
+        return {
+          value: [{
+            type,
+            src,
+            label: title || basename(src),
+            poster: type === "image" ? "" : normaliseJoomlaMediaValue(resource.image || metadata.poster || ""),
+            source_type: relativePath ? "local" : "external"
+          }],
+          label: ""
+        };
+      }
+
+      const image = String(resource.type || metadata.type || "").toLowerCase() === "image"
+        ? src
+        : normaliseJoomlaMediaValue(resource.image || metadata.poster || "");
+
+      return {
+        value: src,
+        label: title || basename(src),
+        image,
+        image_alt: title || basename(src)
+      };
+    }
+
+    return normaliseContentSelection(kind, {
+      id: smartBrowserResourceId(resource),
+      title,
+      summary: metadata.summary || metadata.description || metadata.cardSummary || metadata.menuItemSummary || "",
+      image: resource.image || metadata.image || "",
+      image_alt: metadata.imageAlt || title,
+      href: metadata.href || metadata.url || metadata.link || ""
+    });
+  }
+
+  function normaliseSmartBrowserSelection(kind, result) {
+    const resources = Array.isArray(result) ? result : (result ? [result] : []);
+
+    if (kind === "gallery") {
+      const value = resources
+        .flatMap((resource) => normaliseSmartBrowserResource(kind, resource)?.value || [])
+        .filter((item) => item.src);
+
+      return value.length ? { value, label: "" } : null;
+    }
+
+    if (kind === "com_tags_tag") {
+      const selections = resources
+        .map((resource) => normaliseSmartBrowserResource(kind, resource))
+        .filter(Boolean);
+      const items = selections.flatMap((selection) => selection.value.map((id) => ({
+        id: String(id),
+        label: selection.label || `Tag #${id}`
+      })));
+
+      return items.length ? {
+        value: items.map((item) => item.id),
+        label: items.map((item) => item.label).join(", "),
+        items
+      } : null;
+    }
+
+    return normaliseSmartBrowserResource(kind, resources[0]);
   }
 
   function frameDatasetSelection(kind, target) {
@@ -496,7 +743,9 @@
   }
 
   function open(kind, options = {}) {
-    const route = routeFor(kind);
+    const usesSmartBrowser = hasSmartBrowser(kind, options);
+    const smartBrowserOptions = usesSmartBrowser ? smartBrowserPickerOptions(kind, options) : null;
+    const route = routeFor(kind, options);
     const galleryItems = kind === "gallery" ? cloneGalleryItems(options.currentValue) : [];
     const tagItems = kind === "com_tags_tag" ? cloneTagItems(options.currentValue, options.currentItems) : [];
     const strings = options?.ui_strings && typeof options.ui_strings === "object" ? options.ui_strings : {};
@@ -506,6 +755,11 @@
     const isSingleSelectContentPicker = !supportsManualEntry && !isMediaKind(kind) && !isTagsMultiSelectPicker;
     const isGalleryMultiSelectPicker = kind === "gallery" && Boolean(route);
     const isMultiSelectPicker = isGalleryMultiSelectPicker || isTagsMultiSelectPicker;
+
+    if (usesSmartBrowser && !smartBrowserOptions.multiple && window.SmartBrowserPicker?.open) {
+      return window.SmartBrowserPicker.open(smartBrowserOptions)
+        .then((result) => normaliseSmartBrowserSelection(kind, result));
+    }
 
     if (!window.HTMLDialogElement) {
       const answer = window.prompt(
@@ -580,6 +834,7 @@
 
       const removeHandlers = () => {
         window.removeEventListener("message", onMessage);
+        document.removeEventListener("smartbrowser:select", onSmartBrowserSelect);
         document.removeEventListener("onMediaFileSelected", onMediaSelected);
         if (frame) {
           frame.removeEventListener("load", onFrameLoad);
@@ -773,6 +1028,30 @@
         close(selection);
       };
 
+      const onSmartBrowserSelect = (event) => {
+        if (!usesSmartBrowser) {
+          return;
+        }
+
+        const selection = normaliseSmartBrowserSelection(kind, event.detail?.resources || []);
+
+        if (!selection) {
+          return;
+        }
+
+        if (kind === "gallery") {
+          appendGallerySelection(selection);
+          return;
+        }
+
+        if (kind === "com_tags_tag") {
+          appendTagSelection(selection);
+          return;
+        }
+
+        close(selection);
+      };
+
       const onFrameClick = (event) => {
         const selection = frameDatasetSelection(kind, event.target);
 
@@ -818,6 +1097,7 @@
       };
 
       window.addEventListener("message", onMessage);
+      document.addEventListener("smartbrowser:select", onSmartBrowserSelect);
       if (frame) {
         frame.addEventListener("load", onFrameLoad);
       }
@@ -963,6 +1243,7 @@
   }
 
   window.SuperSoftSmartLinkPickers = {
-    open
+    open,
+    isAvailable
   };
 })();

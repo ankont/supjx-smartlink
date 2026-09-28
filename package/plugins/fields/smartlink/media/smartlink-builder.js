@@ -4473,6 +4473,18 @@ a {
     return [];
   }
 
+  function pickerRuntimeOptions(config) {
+    return {
+      smartbrowser_available: Boolean(config.smartbrowser_available),
+      smartbrowser_url: String(config.smartbrowser_url || ""),
+      application_client: String(config.application_client || "")
+    };
+  }
+
+  function pickerAvailable(config, kind) {
+    return Boolean(window.SuperSoftSmartLinkPickers?.isAvailable?.(kind, pickerRuntimeOptions(config)));
+  }
+
   function sourcePreviewUrl(state) {
     if (state.kind === "image") {
       return imagePreviewUrl(normaliseJoomlaMediaValue(state.value || state.selection_image || ""));
@@ -4498,7 +4510,7 @@ a {
     return `<button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button js-clear is-empty${hasValue ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}"></button>`;
   }
 
-  function renderSourceModeButtons(state, includePickerButton = false) {
+  function renderSourceModeButtons(state, includePickerButton = false, canPick = true) {
     const buttons = [];
 
     if (includePickerButton) {
@@ -4510,6 +4522,10 @@ a {
     }
 
     sourceModeChoices(state).forEach(([value, iconClass, label]) => {
+      if (value === "local" && !canPick) {
+        return;
+      }
+
       buttons.push(
         `<button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${value === state.source_type ? " is-active" : ""} js-source-mode" data-source="${esc(value)}" title="${esc(label)}" aria-label="${esc(label)}">
           <span class="${esc(iconClass)}" aria-hidden="true"></span>
@@ -4522,15 +4538,16 @@ a {
       : "";
   }
 
-  function renderPickerSourceControl(state) {
+  function renderPickerSourceControl(config, state) {
+    const canPick = pickerAvailable(config, state.kind);
     const usesInlineModes = sourceModeChoices(state).length > 0;
     const isLocalPicker = !usesInlineModes || state.source_type === "local";
     const hiddenValue = Array.isArray(state.value) ? state.value.join(",") : String(state.value || "");
-    const title = ["com_content_article", "com_content_category", "menu_item", "com_contact_contact"].includes(state.kind)
+    const title = ["com_content_article", "com_content_category", "menu_item", "com_contact_contact", "user_profile"].includes(state.kind)
       ? ui("summary_selected_item")
       : (state.kind === "com_tags_tag" ? ui("summary_selected_tags") : (usesInlineModes ? valueLabel(state) : ui("summary_selected_file")));
 
-    const valueControl = isLocalPicker
+    const valueControl = isLocalPicker && canPick
       ? `<input class="form-control smartlink-builder__source-value" type="text" value="${esc(summaryText(state))}" readonly>`
       : `<input class="form-control js-value smartlink-builder__source-value" type="${esc(inputType(state))}" value="${esc(Array.isArray(state.value) ? state.value.join(",") : state.value || "")}" placeholder="${esc(valuePlaceholder(state))}">`;
 
@@ -4540,7 +4557,7 @@ a {
         <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
           ${renderSourcePrefix(state)}
           ${valueControl}
-          ${renderSourceModeButtons(state, !usesInlineModes)}
+          ${renderSourceModeButtons(state, !usesInlineModes && canPick, canPick)}
         </div>
         <input class="js-hidden-value" type="hidden" value="${esc(hiddenValue)}">
       </label>`;
@@ -4551,6 +4568,7 @@ a {
   }
 
   function renderGalleryTriggerControl(config, state) {
+    const canPick = pickerAvailable(config, "image");
     const allowsLabel = !limitsPresentationControls(config);
     const configuredMode = String(state.gallery?.trigger_mode || "local").trim() || "local";
     const mode = !allowsLabel && configuredMode === "text" ? "local" : configuredMode;
@@ -4558,7 +4576,7 @@ a {
     const preview = galleryTriggerPreview(state);
     const valueControl = mode === "text"
       ? `<input class="form-control js-gallery-trigger-text smartlink-builder__source-value" type="text" value="${esc(state.label || "")}" placeholder="${esc(ui("field_text_to_display"))}">`
-      : mode === "local"
+      : mode === "local" && canPick
         ? `<input class="form-control smartlink-builder__source-value" type="text" value="${esc(String(state.preview_image || "").trim() ? basename(state.preview_image) : ui("summary_nothing_selected"))}" readonly>`
         : `<input class="form-control js-gallery-trigger-src smartlink-builder__source-value" type="url" value="${esc(state.preview_image || "")}" placeholder="https://example.com/image.jpg">`;
 
@@ -4569,9 +4587,9 @@ a {
           <button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button js-clear-gallery-trigger${preview ? " has-image" : " is-empty"}${String(state.preview_image || "").trim() ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}"${preview ? ` style="background-image:url('${esc(preview)}')"` : ""}></button>
           ${valueControl}
           <div class="smartlink-builder__source-buttons">
-            <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "local" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="local" title="${esc(ui("source_media_library"))}" aria-label="${esc(ui("source_media_library"))}">
+            ${canPick ? `<button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "local" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="local" title="${esc(ui("source_media_library"))}" aria-label="${esc(ui("source_media_library"))}">
               <span class="fa-regular fa-folder-open" aria-hidden="true"></span>
-            </button>
+            </button>` : ""}
             <button type="button" class="btn btn-outline-secondary smartlink-builder__source-mode${mode === "external" ? " is-active" : ""} js-gallery-trigger-mode" data-mode="external" title="${esc(ui("source_web_address"))}" aria-label="${esc(ui("source_web_address"))}">
               <span class="fa-solid fa-globe" aria-hidden="true"></span>
             </button>
@@ -4637,8 +4655,7 @@ a {
 
   function renderGeneral(config, state) {
     const currentMeta = meta(state.kind);
-    const sources = currentMeta.s || [];
-    const usesPicker = currentMeta.p && (!sources.length || state.source_type === "local");
+    const canPick = pickerAvailable(config, state.kind);
     const warning = sectionWarning(state);
     let pickerPanel = "";
 
@@ -4673,8 +4690,8 @@ a {
           </div>` : ""}
         </div>
         `;
-    } else if (currentMeta.p) {
-      pickerPanel = renderPickerSourceControl(state);
+    } else if (currentMeta.p || canPick) {
+      pickerPanel = renderPickerSourceControl(config, state);
     } else {
       const anchorSuggestions = state.kind === "anchor" ? (Array.isArray(state._anchorSuggestions) ? state._anchorSuggestions : []) : [];
       const anchorListId = `smartlink-anchor-list-${Math.random().toString(36).slice(2, 10)}`;
@@ -4710,7 +4727,8 @@ a {
     window.SuperSoftSmartLinkPickers.open(state.kind, {
       currentValue: state.value,
       currentItems: state.kind === "com_tags_tag" ? state.selection_items : [],
-      ui_strings: config.ui_strings || {}
+      ui_strings: config.ui_strings || {},
+      ...pickerRuntimeOptions(config)
     }).then((selection) => {
       if (selection === null) {
         return;
@@ -4883,6 +4901,7 @@ a {
     const inputClass = String(options.inputClass || "").trim();
     const placeholder = String(options.placeholder || "").trim();
     const label = String(options.label || "").trim();
+    const canPick = pickerAvailable(config, "image");
 
     return `
       <label class="smartlink-builder__field">
@@ -4890,9 +4909,9 @@ a {
         <div class="smartlink-builder__input-wrap smartlink-builder__input-wrap--picker smartlink-builder__input-wrap--with-prefix">
           <button class="smartlink-builder__input-thumb smartlink-builder__input-prefix-button ${esc(clearClass)}${preview ? " has-image" : " is-empty"}${hasExplicitValue ? " has-clear" : ""}" type="button" title="${esc(clearLabel)}" aria-label="${esc(clearLabel)}"${preview ? ` style="background-image:url('${esc(preview)}')"` : ""}></button>
           <input class="form-control ${esc(inputClass)}" type="url" value="${esc(value)}"${placeholder ? ` placeholder="${esc(placeholder)}"` : ""}>
-          <button class="btn btn-outline-secondary smartlink-builder__input-picker ${esc(buttonClass)}" type="button" title="${esc(pickerLabel)}" aria-label="${esc(pickerLabel)}">
+          ${canPick ? `<button class="btn btn-outline-secondary smartlink-builder__input-picker ${esc(buttonClass)}" type="button" title="${esc(pickerLabel)}" aria-label="${esc(pickerLabel)}">
             <span class="fa-regular fa-image" aria-hidden="true"></span>
-          </button>
+          </button>` : ""}
         </div>
       </label>`;
   }
@@ -6044,7 +6063,8 @@ a {
         if (nextMode === "local" && window.SuperSoftSmartLinkPickers) {
           window.SuperSoftSmartLinkPickers.open("image", {
             currentValue: state.preview_image,
-            ui_strings: config.ui_strings || {}
+            ui_strings: config.ui_strings || {},
+            ...pickerRuntimeOptions(config)
           }).then((selection) => {
             if (selection === null) {
               return;
@@ -6113,7 +6133,8 @@ a {
 
         window.SuperSoftSmartLinkPickers.open("image", {
           currentValue,
-          ui_strings: config.ui_strings || {}
+          ui_strings: config.ui_strings || {},
+          ...pickerRuntimeOptions(config)
         }).then((selection) => {
           if (selection === null) {
             return;

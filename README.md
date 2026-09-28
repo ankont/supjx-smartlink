@@ -1,4 +1,4 @@
-# SmartLink for Joomla
+# SuperSoftJx - SmartLink
 
 SmartLink is a Joomla field system for storing and rendering typed links as one structured value instead of scattering logic across separate URL, file, image, popup, and preview fields.
 

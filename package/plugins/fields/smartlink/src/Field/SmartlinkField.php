@@ -9,6 +9,7 @@ namespace SuperSoft\Plugin\Fields\Smartlink\Field;
 \defined('_JEXEC') or die;
 
 use InvalidArgumentException;
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\FormField;
 use Joomla\CMS\Language\Text;
@@ -106,6 +107,7 @@ HTML;
      */
     private function getFieldConfig(): array
     {
+        $application = Factory::getApplication();
         $attributes = [
             'authoring_profile' => (string) ($this->element['authoring_profile'] ?? ''),
             'author_feature_preview' => (string) ($this->element['author_feature_preview'] ?? ''),
@@ -133,7 +135,10 @@ HTML;
             'max_gallery_items' => (string) ($this->element['max_gallery_items'] ?? ''),
             'icon_stylesheet_url' => (string) ($this->element['icon_stylesheet_url'] ?? ''),
             'html_output_mode' => (string) ($this->element['html_output_mode'] ?? ''),
-            'asset_version' => '2.0.1',
+            'asset_version' => '2.1.0',
+            'application_client' => $application->isClient('administrator') ? 'administrator' : 'site',
+            'smartbrowser_available' => ComponentHelper::isEnabled('com_smartbrowser'),
+            'smartbrowser_url' => rtrim(Uri::base(), '/') . '/index.php?option=com_smartbrowser&view=browser',
             'use_smartlink_styles' => (string) ($this->element['use_smartlink_styles'] ?? ''),
             'link_button_class' => (string) ($this->element['link_button_class'] ?? ''),
             'thumbnail_empty_mode' => (string) ($this->element['thumbnail_empty_mode'] ?? ''),
@@ -430,6 +435,23 @@ HTML;
         $document->addStyleSheet($mediaBase . '/plg_fields_smartlink/smartlink-builder.css');
         $document->addScript($mediaBase . '/plg_fields_smartlink/pickers.js');
         $document->addScript($mediaBase . '/plg_fields_smartlink/smartlink-builder.js');
+
+        if (ComponentHelper::isEnabled('com_smartbrowser') && method_exists($document, 'getWebAssetManager')) {
+            try {
+                $assets = $document->getWebAssetManager();
+                $assets->getRegistry()->addExtensionRegistryFile('com_smartbrowser');
+                $assets->useStyle('com_smartbrowser.app');
+                $assets->useScript('com_smartbrowser.picker');
+
+                if (method_exists($document, 'addScriptOptions')) {
+                    $document->addScriptOptions('com_smartbrowser.picker', [
+                        'url' => rtrim(Uri::base(), '/') . '/index.php?option=com_smartbrowser&view=browser',
+                    ]);
+                }
+            } catch (\Throwable $error) {
+                // The optional component may be present without its media assets after a partial update.
+            }
+        }
 
         $loaded = true;
     }
